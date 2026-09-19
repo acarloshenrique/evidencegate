@@ -199,7 +199,7 @@ strong, b { font-weight: 450; }
 .nav .links a {
   color: var(--mute-2); font-size: 15px; font-weight: 300;
 }
-.nav .links a:not(.btn):hover { color: var(--ink); text-decoration: none; }
+.nav .links a:hover { color: var(--ink); text-decoration: none; }
 .nav .links a[aria-current="page"] { color: var(--ink); font-weight: 450; }
 
 .wordmark {
@@ -239,7 +239,7 @@ strong, b { font-weight: 450; }
 
 .tag-soft {
   display: inline-block;
-  background: #b9b9f9; background: var(--primary-subdued); color: var(--primary-press);
+  background: #b9b9f9; background: var(--primary-subdued); color: var(--primary-deep);
   font-size: 11px; font-weight: 400; letter-spacing: 0.08em;
   text-transform: uppercase; line-height: 1.15;
   padding: 4px 8px; border-radius: var(--r-pill);
