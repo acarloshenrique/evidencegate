@@ -248,6 +248,10 @@ def create_app(nl: Any = None) -> FastAPI:
                 "calls": calls[-20:],
                 "chain": s.audit.verify_chain()}
 
+    @app.get("/", response_class=HTMLResponse)
+    def landing():
+        return _LANDING_HTML
+
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard():
         return _DASHBOARD_HTML
@@ -443,3 +447,139 @@ async function tick(){
 setInterval(tick,1500);tick();
 </script></body></html>"""
 
+
+
+_LANDING_HTML = """<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EvidenceGate — fé pública programável para a economia de agentes</title>
+<meta name="description" content="Escrow condicionado a verificação, identidade
+KYC→KYA e trilha de auditoria hash-chained para transações agent-to-agent.">
+<meta property="og:title" content="EvidenceGate — quando agentes pagam agentes,
+quem confere o trabalho?">
+<meta property="og:description" content="A camada de confiança que falta na
+economia A2A: verificação como condição de settlement.">
+<meta property="og:type" content="website">
+<style>
+*{box-sizing:border-box;margin:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#06080f;color:#e6edf7}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+nav{display:flex;justify-content:space-between;align-items:center;
+ padding:20px 0;border-bottom:1px solid #141d30}
+.logo{font-weight:800;font-size:18px}
+.logo em{font-style:normal;background:linear-gradient(90deg,#4ade80,#22d3ee);
+ -webkit-background-clip:text;background-clip:text;color:transparent}
+nav a{color:#7d8ba3;text-decoration:none;font-size:13px;margin-left:18px}
+nav a:hover{color:#e6edf7}
+.hero{text-align:center;padding:80px 0 60px}
+h1{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-1px;
+ line-height:1.15}
+h1 em{font-style:normal;background:linear-gradient(90deg,#4ade80,#22d3ee);
+ -webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:clamp(15px,2.5vw,19px);color:#8b9ab5;max-width:640px;
+ margin:20px auto 32px;line-height:1.6}
+.cta{display:inline-block;background:linear-gradient(90deg,#16a34a,#0891b2);
+ color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;
+ text-decoration:none;font-size:15px}
+.cta2{display:inline-block;border:1px solid #1c2f4a;color:#8b9ab5;
+ padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;
+ margin-left:12px}
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+ gap:18px;padding:20px 0 50px}
+.pillar{background:#0c1322;border:1px solid #1c2f4a;border-radius:14px;
+ padding:26px}
+.pillar .ic{font-size:26px;margin-bottom:14px}
+.pillar h3{font-size:16px;margin-bottom:8px}
+.pillar p{font-size:13.5px;color:#8b9ab5;line-height:1.6}
+section{padding:44px 0;border-top:1px solid #141d30}
+h2{font-size:22px;font-weight:800;margin-bottom:8px}
+h2 small{display:block;font-size:12px;color:#22d3ee;font-weight:600;
+ text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.step{background:#0c1322;border:1px solid #1c2f4a;border-radius:8px;
+ padding:10px 14px;font-size:12.5px;color:#8b9ab5}
+.step b{color:#4ade80;font-family:ui-monospace,monospace}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+ gap:14px;margin-top:18px}
+.cell{background:#0c1322;border:1px solid #1c2f4a;border-radius:10px;
+ padding:16px;font-size:13px;color:#8b9ab5}
+.cell b{color:#e6edf7;display:block;margin-bottom:4px}
+.faq{margin-top:14px}
+.faq details{background:#0c1322;border:1px solid #1c2f4a;border-radius:10px;
+ padding:14px 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;font-size:14px;font-weight:600}
+.faq p{font-size:13px;color:#8b9ab5;margin-top:8px;line-height:1.6}
+footer{border-top:1px solid #141d30;padding:28px 0;text-align:center;
+ font-size:12px;color:#5b6b84}
+</style></head><body><div class="wrap">
+<nav><div class="logo">⛨ <em>EvidenceGate</em></div>
+<div><a href="/dashboard">Dashboard ao vivo</a><a href="/docs">API</a></div></nav>
+<div class="hero">
+<h1>Quando agentes pagam agentes,<br><em>quem confere o trabalho?</em></h1>
+<p class="sub">A2A resolveu a conversa. x402 e AP2 resolveram o pagamento.
+Mas settlement é final — ninguém verifica se a entrega presta.
+EvidenceGate é a camada de confiança que falta:
+<strong>escrow condicionado a verificação independente.</strong></p>
+<a class="cta" href="/dashboard">Ver a trilha ao vivo</a>
+<a class="cta2" href="/docs">API docs</a>
+</div>
+<div class="pillars">
+<div class="pillar"><div class="ic">🔏</div><h3>Identidade que responde</h3>
+<p>Principal com KYC real, agente com KYA e AgentCard assinado em Ed25519/did:key.
+Cartão adulterado ou com prompt injection é detectado antes da contratação.</p></div>
+<div class="pillar"><div class="ic">⚖️</div><h3>Verificação antes do dinheiro</h3>
+<p>Stage A determinístico filtra de graça. Painel de 3 juízes cross-model com
+commit-reveal decide 2-de-3 — julgando o artefato, nunca o raciocínio.</p></div>
+<div class="pillar"><div class="ic">⛓</div><h3>Trilha que auditor aceita</h3>
+<p>Cada decisão num log append-only hash-chained. Um caractere adulterado e
+o verificador aponta exatamente onde. Compliance report exportável.</p></div>
+</div>
+<section><h2><small>Como funciona</small>O ciclo completo, sem humano</h2>
+<div class="steps">
+<div class="step"><b>1</b> discover no registry</div>
+<div class="step"><b>2</b> evaluate (reputação × preço)</div>
+<div class="step"><b>3</b> quote + rubrica travada</div>
+<div class="step"><b>4</b> escrow funded</div>
+<div class="step"><b>5</b> entrega + evidence hash</div>
+<div class="step"><b>6</b> stage A + painel de juízes</div>
+<div class="step"><b>7</b> release ou disputa</div>
+<div class="step"><b>8</b> reputação atualizada</div>
+</div></section>
+<section><h2><small>Defesas reais</small>Contra os ataques que a economia A2A vai sofrer</h2>
+<div class="grid2">
+<div class="cell"><b>AgentCard poisoning</b>Texto livre é data, nunca instrução — sanitização +
+flag na trilha.</div>
+<div class="cell"><b>Confused deputy</b>Policy em código: assinatura prova autorização, não
+intenção.</div>
+<div class="cell"><b>Gaming the judge</b>Juiz vê artefato, não CoT — CoT manipulado infla falso
+positivo em 90%.</div>
+<div class="cell"><b>Sybil / reputação</b>Score só muda com outcome settled — review não
+verificado não conta.</div>
+<div class="cell"><b>Payment hijack</b>Funding idempotente, transições guardadas, fail-closed.</div>
+<div class="cell"><b>Log adulterado</b>Hash chain re-derivável — estilo Certificate
+Transparency.</div>
+</div></section>
+<section><h2><small>Roadmap</small>Hackathon hoje, infraestrutura amanhã</h2>
+<div class="grid2">
+<div class="cell"><b>Agora (demo)</b>Escrow + verificação + trilha live, juízes reais na
+NeuraLake, custo/decisão visível.</div>
+<div class="cell"><b>Próximo</b>Adapters x402/AP2, registries ERC-8004
+(identity/reputation/validation) on-chain, settlement em Base.</div>
+<div class="cell"><b>Depois</b>Validação cripto-econômica (stake), TEE/zkML para prova de
+inferência, federação de tribunais.</div>
+</div></section>
+<section><h2><small>Objeções</small>Perguntas que todo mundo faz</h2>
+<div class="faq">
+<details><summary>Juiz LLM decidindo dinheiro não é frágil?</summary>
+<p>Por isso two-stage: o determinístico decide o objetivável de graça; o painel só julga o
+subjetivo, com rubrica travada antes do trabalho e maioria 2-de-3. Juiz que não consegue
+verificar nunca aprova — fail-closed.</p></details>
+<details><summary>Por que não só blockchain?</summary>
+<p>O problema não é o rail de pagamento — é a verificação. O state machine do escrow isola a
+interface: pluga em x402, AP2 ou Base quando fizer sentido, sem reescrever nada.</p></details>
+<details><summary>E se os juízes coludirem?</summary>
+<p>Votos selados (commit-reveal) anti-herding, juízes em modelos diferentes, e juiz também tem
+reputação: aprovar lixo contestado derruba o score dele.</p></details>
+</div></section>
+<footer>EvidenceGate · fé pública programável · desafio 05 — NeuraLake The Launch Hackathon</footer>
+</div></body></html>"""
