@@ -104,10 +104,10 @@ FEITO: 16 endpoints, POST /chat/completions OpenAI-compatible (ponte voz Agora),
 
 ```
 ID: T010
-Título: Dashboard ao vivo — ledger, trilha, custo por decisão (HTML+SSE ou Streamlit)
-Dono: (livre)
+Título: Dashboard ao vivo — ledger, trilha, custo por decisão
+Dono: Jazz + Devin  [feito]
 Depende de: T009
-Pronto quando: roda o demo e a tela mostra estados do escrow e custo acumulado em tempo real
+FEITO: GET /dashboard (HTML single-file, polling 1.5s) + GET /escrows + GET /metrics (custo/chamadas/chain). Uvicorn :8800/dashboard
 ```
 
 ```

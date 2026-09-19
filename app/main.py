@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 
 from .audit import AuditTrail
 from .crypto import b58decode, b58encode
@@ -231,6 +232,26 @@ def create_app(nl: Any = None) -> FastAPI:
     def report(escrow_id: str, s: Services = Depends(svc)):
         return compliance_report(s.audit, escrow_id)
 
+    @app.get("/escrows")
+    def list_escrows(s: Services = Depends(svc)):
+        rows = s.db.execute(
+            "SELECT e.id,e.state,e.created_at,q.price,q.scope,q.buyer_did,q.seller_did "
+            "FROM escrows e JOIN quotes q ON e.quote_id=q.id "
+            "ORDER BY e.created_at DESC").fetchall()
+        return {"escrows": [dict(r) for r in rows]}
+
+    @app.get("/metrics")
+    def metrics(s: Services = Depends(svc)):
+        calls = getattr(s._nl, "calls", [])
+        return {"inference_cost": getattr(s._nl, "total_cost", 0.0),
+                "inference_calls": len(calls),
+                "calls": calls[-20:],
+                "chain": s.audit.verify_chain()}
+
+    @app.get("/dashboard", response_class=HTMLResponse)
+    def dashboard():
+        return _DASHBOARD_HTML
+
     # --- voice bridge (Agora ConvoAI BYOK -> CUSTOM_LLM_URL) -----------------
     @app.post("/chat/completions")
     def chat_completions(body: dict[str, Any], s: Services = Depends(svc)):
@@ -278,3 +299,52 @@ def create_app(nl: Any = None) -> FastAPI:
 
 
 app = create_app()
+
+
+_DASHBOARD_HTML = """<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>EvidenceGate — auditor</title>
+<style>
+body{font-family:ui-monospace,Menlo,monospace;background:#0b0e14;color:#d7e0ea;margin:0;padding:24px}
+h1{font-size:18px;color:#7ee787}h2{font-size:13px;color:#8b949e;text-transform:uppercase;
+letter-spacing:.1em;border-bottom:1px solid #21262d;padding-bottom:4px;margin-top:28px}
+.card{background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin:8px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 32px}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.RELEASED,.RESOLVED,.VERIFIED{background:#12381f;color:#7ee787}
+.REJECTED,.DISPUTED{background:#3d1d1d;color:#ff7b72}
+.FUNDED,.DELIVERED,.QUOTED,.ARBITRATED{background:#1c2a44;color:#79c0ff}
+.ev{color:#8b949e;font-size:12px}.ev b{color:#d7e0ea}
+#cost{color:#f0b429;font-size:24px;font-weight:700}
+.mono{font-size:11px;color:#6e7681}
+</style></head><body>
+<h1>EvidenceGate — trilha de auditoria ao vivo</h1>
+<div>custo de inferência: <span id="cost">$0</span> ·
+chamadas: <span id="ncalls">0</span> ·
+trilha: <b id="chain">?</b> · <span class="mono" id="clock"></span></div>
+<div class="grid"><div>
+<h2>Escrows</h2><div id="escrows"></div>
+</div><div>
+<h2>Audit trail (hash-chained)</h2><div id="trail"></div>
+</div></div>
+<script>
+async function j(u){return (await fetch(u)).json()}
+function badge(st){return `<span class="badge ${st}">${st}</span>`}
+async function tick(){
+  const [m,e,a] = await Promise.all([j('/metrics'),j('/escrows'),j('/audit')]);
+  document.getElementById('cost').textContent = '$'+m.inference_cost.toFixed(6);
+  document.getElementById('ncalls').textContent = m.inference_calls;
+  const c = document.getElementById('chain');
+  c.textContent = m.chain.ok ? 'ÍNTEGRA' : 'ADULTERADA @seq '+m.chain.tampered_seq;
+  c.style.color = m.chain.ok ? '#7ee787' : '#ff7b72';
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  document.getElementById('escrows').innerHTML = e.escrows.map(x=>`
+    <div class="card">${badge(x.state)} <b>${x.id}</b> · $${x.price} · ${x.scope}
+    <div class="mono">${x.seller_did.slice(0,32)}…</div></div>`).join('')
+    || '<div class="ev">nenhum escrow ainda</div>';
+  document.getElementById('trail').innerHTML = a.events.slice(-14).reverse().map(x=>`
+    <div class="ev"><b>#${x.seq}</b> ${x.action} <span class="mono">
+    ${x.actor_did.slice(0,28)}… ${x.event_hash.slice(0,10)}</span></div>`).join('')
+    || '<div class="ev">trilha vazia</div>';
+}
+setInterval(tick,1500);tick();
+</script></body></html>"""
