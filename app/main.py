@@ -302,49 +302,144 @@ app = create_app()
 
 
 _DASHBOARD_HTML = """<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><title>EvidenceGate — auditor</title>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EvidenceGate — camada de confiança A2A</title>
 <style>
-body{font-family:ui-monospace,Menlo,monospace;background:#0b0e14;color:#d7e0ea;margin:0;padding:24px}
-h1{font-size:18px;color:#7ee787}h2{font-size:13px;color:#8b949e;text-transform:uppercase;
-letter-spacing:.1em;border-bottom:1px solid #21262d;padding-bottom:4px;margin-top:28px}
-.card{background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin:8px 0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 32px}
-.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}
-.RELEASED,.RESOLVED,.VERIFIED{background:#12381f;color:#7ee787}
-.REJECTED,.DISPUTED{background:#3d1d1d;color:#ff7b72}
-.FUNDED,.DELIVERED,.QUOTED,.ARBITRATED{background:#1c2a44;color:#79c0ff}
-.ev{color:#8b949e;font-size:12px}.ev b{color:#d7e0ea}
-#cost{color:#f0b429;font-size:24px;font-weight:700}
-.mono{font-size:11px;color:#6e7681}
+*{box-sizing:border-box;margin:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#06080f;color:#e6edf7;
+ min-height:100vh;padding:0}
+header{background:linear-gradient(135deg,#0d1424 0%,#0a1f33 60%,#0d2b1f 100%);
+ border-bottom:1px solid #1c2f4a;padding:22px 32px;display:flex;align-items:center;
+ justify-content:space-between;flex-wrap:wrap;gap:12px}
+.logo{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.logo em{font-style:normal;background:linear-gradient(90deg,#4ade80,#22d3ee);
+ -webkit-background-clip:text;background-clip:text;color:transparent}
+.tag{font-size:12px;color:#7d8ba3;margin-top:3px}
+.live{display:flex;align-items:center;gap:8px;font-size:12px;color:#7d8ba3}
+.dot{width:8px;height:8px;border-radius:50%;background:#4ade80;
+ box-shadow:0 0 8px #4ade80;animation:pulse 1.5s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+ gap:14px;padding:22px 32px 6px}
+.kpi{background:#0c1322;border:1px solid #1c2f4a;border-radius:12px;padding:16px 18px}
+.kpi .lbl{font-size:11px;color:#7d8ba3;text-transform:uppercase;letter-spacing:.08em}
+.kpi .val{font-size:26px;font-weight:800;margin-top:6px}
+.kpi .sub{font-size:11px;color:#5b6b84;margin-top:2px}
+.green{color:#4ade80}.cyan{color:#22d3ee}.amber{color:#fbbf24}.red{color:#f87171}
+.cols{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;padding:18px 32px 32px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.panel{background:#0c1322;border:1px solid #1c2f4a;border-radius:12px;padding:18px}
+.panel h2{font-size:12px;color:#7d8ba3;text-transform:uppercase;letter-spacing:.1em;
+ margin-bottom:14px;display:flex;justify-content:space-between}
+.esc{background:#0f1830;border:1px solid #1e3a5f;border-radius:10px;
+ padding:14px 16px;margin-bottom:12px}
+.esc.attack{border-color:#7f1d1d;background:#1a0f14}
+.esc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.esc-id{font-family:ui-monospace,monospace;font-size:12px;color:#8fb3d9}
+.esc-price{font-weight:800;color:#fbbf24}
+.esc-scope{font-size:13px;color:#c4d2e6;margin-bottom:10px}
+.pipe{display:flex;align-items:center;gap:0;margin:6px 0}
+.step{flex:1;text-align:center;position:relative}
+.step .pt{width:11px;height:11px;border-radius:50%;background:#22304a;
+ margin:0 auto;border:2px solid #22304a}
+.step .lb{font-size:9px;color:#5b6b84;margin-top:4px;text-transform:uppercase}
+.step.done .pt{background:#4ade80;border-color:#4ade80;box-shadow:0 0 6px #4ade80aa}
+.step.done .lb{color:#4ade80}
+.step.cur .pt{background:#22d3ee;border-color:#22d3ee;
+ box-shadow:0 0 10px #22d3ee;animation:pulse 1.2s infinite}
+.step.cur .lb{color:#22d3ee}
+.step.bad .pt{background:#f87171;border-color:#f87171}
+.step.bad .lb{color:#f87171}
+.step::before{content:'';position:absolute;top:5px;left:-50%;width:100%;
+ height:2px;background:#22304a;z-index:-1}
+.step:first-child::before{display:none}
+.step.done::before{background:#4ade80}
+.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;
+ letter-spacing:.05em}
+.b-ok{background:#12331f;color:#4ade80}
+.b-warn{background:#33290f;color:#fbbf24}
+.b-bad{background:#331315;color:#f87171}
+.ev{font-family:ui-monospace,monospace;font-size:11.5px;color:#93a4bd;
+ padding:6px 0;border-bottom:1px solid #141d30;display:flex;gap:10px}
+.ev:last-child{border:0}
+.ev .seq{color:#22d3ee;min-width:32px}
+.ev .act{color:#e6edf7;min-width:150px}
+.ev .meta{color:#5b6b84;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flag{color:#f87171;font-weight:700}
+.empty{color:#5b6b84;font-size:13px;padding:20px;text-align:center}
 </style></head><body>
-<h1>EvidenceGate — trilha de auditoria ao vivo</h1>
-<div>custo de inferência: <span id="cost">$0</span> ·
-chamadas: <span id="ncalls">0</span> ·
-trilha: <b id="chain">?</b> · <span class="mono" id="clock"></span></div>
-<div class="grid"><div>
-<h2>Escrows</h2><div id="escrows"></div>
-</div><div>
-<h2>Audit trail (hash-chained)</h2><div id="trail"></div>
-</div></div>
+<header>
+  <div>
+    <div class="logo">⛨ <em>EvidenceGate</em></div>
+    <div class="tag">fé pública programável para a economia de agentes · camada de confiança A2A
+    </div>
+  </div>
+  <div class="live"><span class="dot"></span> AO VIVO · <span id="clock"></span></div>
+</header>
+<div class="kpis">
+  <div class="kpi"><div class="lbl">Custo de inferência</div>
+    <div class="val amber" id="cost">$0</div><div class="sub">NeuraLake, por decisão</div></div>
+  <div class="kpi"><div class="lbl">Chamadas LLM</div>
+    <div class="val cyan" id="ncalls">0</div><div class="sub">juízes + orquestrador</div></div>
+  <div class="kpi"><div class="lbl">Trilha de auditoria</div>
+    <div class="val" id="chain">—</div><div class="sub" id="chain_sub">hash chain</div></div>
+  <div class="kpi"><div class="lbl">Escrows</div>
+    <div class="val" id="nesc">0</div><div class="sub">verificação = condição de settle</div></div>
+</div>
+<div class="cols">
+  <div class="panel"><h2>Escrows <span class="mono">state machine</span></h2>
+    <div id="escrows"></div></div>
+  <div>
+  <div class="panel" style="margin-bottom:18px"><h2>Registry</h2><div id="agents"></div></div>
+  <div class="panel"><h2>Audit trail <span class="mono">append-only · hash-chained</span></h2>
+    <div id="trail"></div></div>
+  </div>
+</div>
 <script>
-async function j(u){return (await fetch(u)).json()}
-function badge(st){return `<span class="badge ${st}">${st}</span>`}
+const $=id=>document.getElementById(id);
+async function j(u){try{return (await fetch(u)).json()}catch(e){return{}}}
+const HAPPY=['QUOTED','FUNDED','DELIVERED','VERIFIED','RELEASED'];
+const BAD=['REJECTED','DISPUTED','ARBITRATED','RESOLVED'];
+function pipe(state){
+  let steps=HAPPY.slice(),cur=HAPPY.indexOf(state);
+  if(BAD.includes(state)){steps=['QUOTED','FUNDED','DELIVERED',state];cur=3;}
+  return `<div class="pipe">`+steps.map((s,i)=>{
+    const cls=i<cur?'done':(i===cur?(BAD.includes(s)?'bad':'cur'):'');
+    return `<div class="step ${cls}"><div class="pt"></div><div class="lb">${s}</div></div>`;
+  }).join('')+`</div>`;
+}
 async function tick(){
-  const [m,e,a] = await Promise.all([j('/metrics'),j('/escrows'),j('/audit')]);
-  document.getElementById('cost').textContent = '$'+m.inference_cost.toFixed(6);
-  document.getElementById('ncalls').textContent = m.inference_calls;
-  const c = document.getElementById('chain');
-  c.textContent = m.chain.ok ? 'ÍNTEGRA' : 'ADULTERADA @seq '+m.chain.tampered_seq;
-  c.style.color = m.chain.ok ? '#7ee787' : '#ff7b72';
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-  document.getElementById('escrows').innerHTML = e.escrows.map(x=>`
-    <div class="card">${badge(x.state)} <b>${x.id}</b> · $${x.price} · ${x.scope}
-    <div class="mono">${x.seller_did.slice(0,32)}…</div></div>`).join('')
-    || '<div class="ev">nenhum escrow ainda</div>';
-  document.getElementById('trail').innerHTML = a.events.slice(-14).reverse().map(x=>`
-    <div class="ev"><b>#${x.seq}</b> ${x.action} <span class="mono">
-    ${x.actor_did.slice(0,28)}… ${x.event_hash.slice(0,10)}</span></div>`).join('')
-    || '<div class="ev">trilha vazia</div>';
+  const [m,e,a,g]=await Promise.all(
+    [j('/metrics'),j('/escrows'),j('/audit'),j('/agents')]);
+  $('clock').textContent=new Date().toLocaleTimeString('pt-BR');
+  $('cost').textContent='$'+(m.inference_cost||0).toFixed(6);
+  $('ncalls').textContent=m.inference_calls||0;
+  const ok=m.chain&&m.chain.ok;
+  $('chain').textContent=ok?'ÍNTEGRA':'ADULTERADA';
+  $('chain').className='val '+(ok?'green':'red');
+  $('chain_sub').textContent=ok?'hash chain verificada':
+    'tamper detectado @seq '+(m.chain?m.chain.tampered_seq:'?');
+  $('nesc').textContent=(e.escrows||[]).length;
+  $('escrows').innerHTML=(e.escrows||[]).map(x=>`
+    <div class="esc"><div class="esc-top">
+      <span class="esc-id">${x.id}</span><span class="esc-price">$${x.price}</span></div>
+      <div class="esc-scope">${x.scope||''}</div>${pipe(x.state)}
+      <div class="mono" style="font-size:10px;color:#5b6b84">seller ${x.seller_did.slice(0,30)}…
+      </div>
+    </div>`).join('')||'<div class="empty">aguardando primeira transação…</div>';
+  $('agents').innerHTML=(g.agents||[]).map(a=>`
+    <div class="ev"><span class="act">${a.did.slice(0,24)}…</span>
+    <span class="meta">rep ${a.reputation.toFixed(1)} · ${(a.capabilities||[]).join(',')}</span>
+    </div>`
+  ).join('')||'<div class="empty">registry vazio</div>';
+  $('trail').innerHTML=(a.events||[]).slice(-16).reverse().map(x=>{
+    const bad=/denied|invalid|flagged|disputed|rejected/i.test(x.action);
+    return `<div class="ev"><span class="seq">#${x.seq}</span>
+      <span class="act ${bad?'flag':''}">${x.action}</span>
+      <span class="meta">${x.actor_did.slice(0,24)}… ⛓ ${x.event_hash.slice(0,10)}</span></div>`;
+  }).join('')||'<div class="empty">trilha vazia</div>';
 }
 setInterval(tick,1500);tick();
 </script></body></html>"""
+
