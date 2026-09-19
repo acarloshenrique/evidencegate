@@ -140,6 +140,17 @@ Status: QUASE COMPLETO. Agent server systemd (porta 8010) + /chat/completions co
 ```
 
 ```
+ID: T014
+Titulo: Grafo de proveniencia / rastreio semantico (KYC->KYA->quote->escrow->votos->dinheiro->eventos)
+Dono: Devin  [completo]
+Depende de: T010
+Pronto quando: /trace/graph + /trace/{id} servindo nos publicos + view "Rastreio" no dashboard React (cytoscape)
+Status: COMPLETO. app/trace.py deriva nos tipados (principal, agente, quote, escrow, juiz) e arestas
+semanticas (KYC_BACKS, SIGNED_QUOTE, FUNDED, JUDGED_BY, VOTE, MONEY, LOGGED). Deploy live: 15 nos,
+54 arestas do seed+caso live. Neo4j fica como backend opcional atras do mesmo contrato de API.
+```
+
+```
 ID: T013
 Título: Pitch + vídeo 60s + short deck (code freeze domingo 11h)
 Dono: Jazz
