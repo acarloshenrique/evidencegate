@@ -48,6 +48,7 @@ from .schemas import (
     VerifyIn,
     VerifyOut,
 )
+from .trace import build_graph, trace_entity
 from .verify import JudgePanel, stage_a
 
 _AGORA_AGENT_URL = os.getenv("AGORA_AGENT_URL", "http://localhost:8010")
@@ -291,6 +292,19 @@ def create_app(nl: Any = None) -> FastAPI:
             "FROM escrows e JOIN quotes q ON e.quote_id=q.id "
             "ORDER BY e.created_at DESC").fetchall()
         return {"escrows": [dict(r) for r in rows]}
+
+    @app.get("/trace/graph")
+    def trace_graph(s: Services = Depends(svc)):
+        """Grafo de proveniencia: KYC -> KYA -> quote -> escrow -> votos ->
+        dinheiro -> eventos. Arestas tipadas = camada semantica da trilha."""
+        return build_graph(s.db)
+
+    @app.get("/trace/{entity_id}")
+    def trace_one(entity_id: str, s: Services = Depends(svc)):
+        out = trace_entity(s.db, entity_id)
+        if not out["found"]:
+            raise HTTPException(404, "entidade desconhecida")
+        return out
 
     @app.get("/ledger")
     def ledger_events(s: Services = Depends(svc)):

@@ -4,6 +4,7 @@ import {
   Coins,
   Landmark,
   LayoutDashboard,
+  Network,
   Radio,
   ScrollText,
   ShieldCheck,
@@ -17,17 +18,19 @@ import { CostPanel } from '@/components/cost-panel'
 import { EscrowDetailSheet } from '@/components/escrow-detail'
 import { EscrowTable } from '@/components/escrow-table'
 import { StatCards } from '@/components/stat-cards'
+import { TracePanel } from '@/components/trace-panel'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const POLL_MS = 1500
 
-type View = 'overview' | 'escrows' | 'audit' | 'agents' | 'costs'
+type View = 'overview' | 'escrows' | 'trace' | 'audit' | 'agents' | 'costs'
 
 const NAV: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'escrows', label: 'Escrows', icon: Landmark },
+  { id: 'trace', label: 'Rastreio', icon: Network },
   { id: 'audit', label: 'Auditoria', icon: ScrollText },
   { id: 'agents', label: 'Agentes', icon: Bot },
   { id: 'costs', label: 'Custos', icon: Coins },
@@ -36,6 +39,7 @@ const NAV: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
 const VIEW_TITLE: Record<View, string> = {
   overview: 'Visão geral',
   escrows: 'Escrows',
+  trace: 'Rastreio de proveniência',
   audit: 'Trilha de auditoria',
   agents: 'Registry de agentes',
   costs: 'Custos de inferência',
@@ -199,7 +203,8 @@ export default function App() {
               onSelectEscrow={selectEscrow}
             />
           )}
-          {view === 'agents' && <AgentsPanel agents={agents.data?.agents ?? []} />}
+          {view === 'trace' && <TracePanel />}
+        {view === 'agents' && <AgentsPanel agents={agents.data?.agents ?? []} />}
           {view === 'costs' && <CostPanel calls={metrics.data?.calls ?? []} />}
         </main>
       </div>

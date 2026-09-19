@@ -108,6 +108,40 @@ export interface EscrowDetail {
   events: AuditEvent[]
 }
 
+export interface TraceNode {
+  id: string
+  type: 'principal' | 'agent' | 'quote' | 'escrow' | 'judge' | 'event'
+  type_label: string
+  label: string
+  color: string
+  data: Record<string, any>
+}
+
+export interface TraceEdge {
+  id: string
+  src: string
+  dst: string
+  type: string
+  label: string
+  data: Record<string, any>
+}
+
+export interface TraceGraph {
+  nodes: TraceNode[]
+  edges: TraceEdge[]
+}
+
+export interface TraceFacts {
+  found: boolean
+  node: TraceNode
+  neighbors: TraceNode[]
+  edges: TraceEdge[]
+  escrows?: Array<{ id: string; state: string; verdict: string | null; price: number; scope: string }>
+  balance?: number
+  events?: AuditEvent[]
+  votes?: JudgeVote[]
+}
+
 export interface Agent {
   did: string
   reputation: number
@@ -128,5 +162,7 @@ export const api = {
   audit: () => get<{ events: AuditEvent[] }>('/audit'),
   agents: () => get<{ agents: Agent[] }>('/agents'),
   escrow: (id: string) => get<EscrowDetail>(`/escrow/${id}`),
+  traceGraph: () => get<TraceGraph>('/trace/graph'),
+  trace: (id: string) => get<TraceFacts>(`/trace/${encodeURIComponent(id)}`),
   health: () => get<{ status: string; service: string }>('/health'),
 }
