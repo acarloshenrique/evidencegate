@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EvidenceGate — design system</title>
+<link rel="stylesheet" href="/static/eg.css">
+<style>
+h1{font-size:48px;font-weight:300;line-height:1.15;letter-spacing:-0.03em}
+h2{font-size:32px;font-weight:300;letter-spacing:-0.025em}
+h3{font-size:18px;font-weight:300}
+.ds-hero{position:relative;padding:140px 0 80px;overflow:hidden}
+.ds-hero .wrap{position:relative}
+.sec{padding:64px 0;border-top:1px solid var(--hairline)}
+..sec h2{font-size:32px;font-weight:300;letter-spacing:-0.025em;margin-bottom:8px}
+.sec .desc{color:var(--mute-2);max-width:60ch;margin-bottom:40px}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+.sw{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--elev-1)}
+.sw .chip{height:72px}
+.sw .meta{padding:10px 12px;background:var(--canvas)}
+.sw .name{font-size:13px;font-weight:450}
+.sw .hex{font-size:12px;font-weight:300;color:var(--mute);
+  font-feature-settings:"tnum"}
+.type-row{display:grid;grid-template-columns:140px 1fr;gap:24px;
+  align-items:baseline;padding:18px 0;border-top:1px solid var(--hairline)}
+.type-row .spec{font-size:12px;color:var(--mute);font-feature-settings:"tnum";
+  line-height:1.6}
+.comp{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+  padding:24px 0;border-top:1px solid var(--hairline)}
+.comp .lbl{min-width:200px;font-size:13px;color:var(--mute)}
+.glass-demo{position:relative;height:220px;border-radius:var(--r-lg);
+  overflow:hidden;margin-top:8px}
+.glass-demo .mesh{position:absolute}
+.glass-demo .gcard{position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);padding:20px 28px;border-radius:var(--r-xl);
+  font-size:15px;font-weight:300;color:var(--ink)}
+.dark-box{background:var(--d-bg);border-radius:var(--r-lg);padding:32px;
+  margin-top:8px}
+.dark-box .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.dodont{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.dodont ul{list-style:none}
+.dodont li{font-size:14px;font-weight:300;color:var(--mute-2);
+  padding:12px 0;border-top:1px solid var(--hairline);display:flex;gap:10px}
+.dodont li b{font-weight:450;color:var(--ink);min-width:14px}
+@media(max-width:768px){.dodont{grid-template-columns:1fr}
+.type-row{grid-template-columns:1fr}}
+</style></head><body>
+
+<nav class="nav glass"><div class="nav-in">
+  <a class="wordmark" href="/">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#533afd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5v5.2c0 5-3.4 9.3-8 10.8-4.6-1.5-8-5.8-8-10.8V5.5L12 2z"/><path d="M8.5 12l2.4 2.4 4.6-4.8"/></svg>
+    EvidenceGate</a>
+  <div class="links">
+    <a href="/">Home</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/docs">API</a>
+  </div>
+</div></nav>
+
+<header class="ds-hero"><div class="mesh"><i></i><i></i><i></i><i></i><i></i></div>
+<div class="wrap">
+  <h1 class="d-xl">O sistema visual do<br>EvidenceGate.</h1>
+  <p class="body-lg" style="color:var(--ink-2);max-width:34em;margin-top:24px">
+  Infraestrutura financeira pede austeridade: um índigo para agir,
+  tinta navy para ler, vidro só onde conteúdo passa por baixo,
+  e números sempre tabulares.</p>
+</div></header>
+
+<div class="wrap">
+
+<section class="sec">
+  <h2>Cor</h2>
+  <p class="desc body-md">Dois papéis: índigo assina a ação — um CTA cheio por
+  banda — e navy profundo carrega o texto. Ruby e magenta vivem dentro do
+  mesh, nunca em botão.</p>
+  <h3 class="h-sm" style="margin-bottom:16px">Marca &amp; acento</h3>
+  <div class="swatches" id="sw1"></div>
+  <h3 class="h-sm" style="margin:32px 0 16px">Superfície &amp; texto</h3>
+  <div class="swatches" id="sw2"></div>
+  <h3 class="h-sm" style="margin:32px 0 16px">Semântico (só em produto)</h3>
+  <div class="swatches" id="sw3"></div>
+</section>
+
+<section class="sec">
+  <h2>Tipografia</h2>
+  <p class="desc body-md">Inter variável no peso 300, análoga open da Söhne,
+  com tracking negativo no display, <code>ss01</code> global e
+  <code>tnum</code> em qualquer célula com dinheiro ou contagem.</p>
+  <div class="type-row"><span class="spec">display-xxl<br>56 · 300 · -0.04em</span>
+    <span class="d-xxl">Fé pública programável</span></div>
+  <div class="type-row"><span class="spec">display-xl<br>48 · 300 · -0.03em</span>
+    <span class="d-xl">Quem confere o trabalho?</span></div>
+  <div class="type-row"><span class="spec">display-lg<br>32 · 300 · -0.025em</span>
+    <span class="d-lg">Verificação antes do dinheiro</span></div>
+  <div class="type-row"><span class="spec">heading-lg<br>22 · 300 · -0.02em</span>
+    <span class="h-lg">Trilha que auditor aceita</span></div>
+  <div class="type-row"><span class="spec">body-lg<br>16 · 300</span>
+    <span class="body-lg">Escrow condicionado a verificação independente, com
+    rubrica travada no quote.</span></div>
+  <div class="type-row"><span class="spec">body-md<br>15 · 300</span>
+    <span class="body-md">O painel decide 2-de-3 por commit-reveal, julgando o
+    artefato e nunca o raciocínio.</span></div>
+  <div class="type-row"><span class="spec">tabular · tnum<br>14 · 300</span>
+    <span class="num">$0.0106 · 7 chamadas · seq #0412 · rep 9.5</span></div>
+  <div class="type-row"><span class="spec">micro-cap<br>10 · 400 · +0.1em</span>
+    <span><span class="tag-soft">sistema ao vivo</span></span></div>
+</section>
+
+<section class="sec">
+  <h2>Componentes</h2>
+  <p class="desc body-md">Pills curtas e decisivas para ação; cards com uma
+  sombra ou uma borda, nunca os dois; tags soft para estado.</p>
+  <div class="comp"><span class="lbl">botões</span>
+    <button class="btn btn-primary">Continuar</button>
+    <button class="btn btn-secondary">Ver detalhes</button>
+    <button class="btn btn-dark">Abrir console</button>
+    <button class="btn btn-primary btn-sm">Ação curta</button>
+  </div>
+  <div class="comp"><span class="lbl">tags</span>
+    <span class="tag-soft">em curso</span>
+    <span class="tag-soft tag-ok">íntegra</span>
+    <span class="tag-soft tag-warn">disputado</span>
+    <span class="tag-soft tag-bad">adulterado</span>
+  </div>
+  <div class="comp"><span class="lbl">input</span>
+    <input class="input" placeholder="did:key:z6Mk…" style="width:280px">
+  </div>
+  <div class="comp" style="align-items:stretch"><span class="lbl">cards</span>
+    <div class="card" style="flex:1;min-width:220px">
+      <div class="h-md" style="margin-bottom:8px">Feature card</div>
+      <p class="body-md" style="color:var(--mute-2)">Canvas branco, elevação 1,
+      raio 12.</p></div>
+    <div class="card card-dark" style="flex:1;min-width:220px">
+      <div class="h-md" style="margin-bottom:8px">Featured navy</div>
+      <p class="body-md">O tier em destaque
+      inverte para brand-dark-900.</p></div>
+    <div class="card card-cream" style="flex:1;min-width:220px">
+      <div class="h-md" style="margin-bottom:8px">Cream band</div>
+      <p class="body-md" style="color:var(--ink-2)">O interlúdio quente entre
+      seções.</p></div>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>Vidro</h2>
+  <p class="desc body-md">Glass morphism tem função, não decoração: a nav e os
+  painéis flutuantes deixam o mesh e o conteúdo respirarem por baixo. Fora
+  disso, superfície é superfície.</p>
+  <div class="glass-demo"><div class="mesh" style="position:absolute">
+    <i></i><i></i><i></i><i></i><i></i></div>
+    <div class="gcard glass">blur 20px · saturação 1.7 · hairline branca</div>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>Dark track</h2>
+  <p class="desc body-md">Superfícies de operação viram noite: dashboard, voz
+  e console rodam em navy profundo com painéis de vidro escuro.</p>
+  <div class="dark-box dark">
+    <div class="row">
+      <span class="tag-soft">em curso</span>
+      <span class="tag-soft tag-ok">íntegra</span>
+      <span class="tag-soft tag-warn">disputado</span>
+      <span class="tag-soft tag-bad">adulterado</span>
+      <span class="num" style="color:var(--d-text)">$0.0106 · seq #0412</span>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>Regras</h2>
+  <p class="desc body-md">O que mantém o sistema honesto.</p>
+  <div class="dodont">
+    <ul>
+      <li><b>+</b>Um CTA cheio por banda — índigo é escasso de propósito.</li>
+      <li><b>+</b>Display sempre no peso 300 com tracking negativo.</li>
+      <li><b>+</b><code>tnum</code> em qualquer número que mede dinheiro ou
+        contagem.</li>
+      <li><b>+</b>Vidro onde conteúdo rola por baixo; sombra com offset e
+        blur suave.</li>
+      <li><b>+</b>Mesh de gradiente em todo hero de marketing.</li>
+      <li><b>+</b>Espaço acima do heading maior que abaixo.</li>
+    </ul>
+    <ul>
+      <li><b>−</b>Texto com gradiente — ênfase vem de peso ou tamanho.</li>
+      <li><b>−</b>Vidro como enfeite em superfície parada.</li>
+      <li><b>−</b>Borda + sombra larga no mesmo card (ghost card).</li>
+      <li><b>−</b>Índigo como cor de texto corrido.</li>
+      <li><b>−</b>Emoji ou glyph como ícone — ícone é traço desenhado.</li>
+      <li><b>−</b>Eyebrow acima do título — o heading carrega peso próprio.</li>
+    </ul>
+  </div>
+</section>
+
+</div>
+<footer class="footer"><div class="wrap cols">
+  <span>EvidenceGate design system · v1</span>
+  <span><a href="/">home</a> · <a href="/dashboard">dashboard</a></span>
+</div></footer>
+
+<script>
+const SW1=[["primary","#533afd"],["primary-deep","#4434d4"],
+["primary-soft","#665efd"],["primary-subdued","#b9b9f9"],
+["brand-dark-900","#1c1e54"],["ruby","#ea2261"],["magenta","#f96bee"],
+["lemon","#9b6829"]];
+const SW2=[["canvas","#ffffff"],["canvas-soft","#f6f9fc"],
+["canvas-cream","#f5e9d4"],["hairline","#e3e8ee"],["ink","#0d253d"],
+["ink-secondary","#273951"],["ink-mute","#64748d"]];
+const SW3=[["ok","#0e9f6e"],["warn","#b45309"],["bad","#d92d5c"],
+["live","#38bdf8"]];
+function sw(el,list){document.getElementById(el).innerHTML=list.map(
+([n,h])=>`<div class="sw"><div class="chip" style="background:${h};
+border:1px solid var(--hairline)"></div><div class="meta">
+<div class="name">${n}</div><div class="hex">${h}</div></div></div>`).join("")}
+sw("sw1",SW1);sw("sw2",SW2);sw("sw3",SW3);
+</script></body></html>

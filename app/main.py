@@ -20,6 +20,7 @@ from typing import Any
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from .audit import AuditTrail
 from .crypto import b58decode, b58encode
@@ -90,6 +91,13 @@ class Services:
         return b58decode(row["sk_b58"])
 
 
+_WEB = Path(__file__).resolve().parent / "web"
+
+
+def _page(name: str) -> HTMLResponse:
+    return HTMLResponse((_WEB / name).read_text(encoding="utf-8"))
+
+
 def create_app(nl: Any = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -102,6 +110,8 @@ def create_app(nl: Any = None) -> FastAPI:
 
     def svc(request: Request) -> Services:
         return request.app.state.svc
+
+    app.mount("/static", StaticFiles(directory=_WEB), name="static")
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -253,11 +263,15 @@ def create_app(nl: Any = None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def landing():
-        return _LANDING_HTML
+        return _page("landing.html")
+
+    @app.get("/design", response_class=HTMLResponse)
+    def design():
+        return _page("design.html")
 
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard():
-        return _DASHBOARD_HTML
+        return _page("dashboard.html")
 
     # --- voice bridge (Agora ConvoAI BYOK -> CUSTOM_LLM_URL) -----------------
     @app.post("/chat/completions")
@@ -324,7 +338,7 @@ def create_app(nl: Any = None) -> FastAPI:
     # --- voice demo (Agora RTC client + agent control proxy) -----------------
     @app.get("/voice", response_class=HTMLResponse)
     def voice_page():
-        return _VOICE_HTML
+        return _page("voice.html")
 
     @app.get("/voice/config")
     def voice_config(channel: str = "", uid: int = 0):
@@ -362,358 +376,3 @@ def create_app(nl: Any = None) -> FastAPI:
 
 
 app = create_app()
-
-
-_DASHBOARD_HTML = """<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EvidenceGate — camada de confiança A2A</title>
-<style>
-*{box-sizing:border-box;margin:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#06080f;color:#e6edf7;
- min-height:100vh;padding:0}
-header{background:linear-gradient(135deg,#0d1424 0%,#0a1f33 60%,#0d2b1f 100%);
- border-bottom:1px solid #1c2f4a;padding:22px 32px;display:flex;align-items:center;
- justify-content:space-between;flex-wrap:wrap;gap:12px}
-.logo{font-size:22px;font-weight:800;letter-spacing:-.5px}
-.logo em{font-style:normal;background:linear-gradient(90deg,#4ade80,#22d3ee);
- -webkit-background-clip:text;background-clip:text;color:transparent}
-.tag{font-size:12px;color:#7d8ba3;margin-top:3px}
-.live{display:flex;align-items:center;gap:8px;font-size:12px;color:#7d8ba3}
-.dot{width:8px;height:8px;border-radius:50%;background:#4ade80;
- box-shadow:0 0 8px #4ade80;animation:pulse 1.5s infinite}
-@keyframes pulse{50%{opacity:.4}}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
- gap:14px;padding:22px 32px 6px}
-.kpi{background:#0c1322;border:1px solid #1c2f4a;border-radius:12px;padding:16px 18px}
-.kpi .lbl{font-size:11px;color:#7d8ba3;text-transform:uppercase;letter-spacing:.08em}
-.kpi .val{font-size:26px;font-weight:800;margin-top:6px}
-.kpi .sub{font-size:11px;color:#5b6b84;margin-top:2px}
-.green{color:#4ade80}.cyan{color:#22d3ee}.amber{color:#fbbf24}.red{color:#f87171}
-.cols{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;padding:18px 32px 32px}
-@media(max-width:900px){.cols{grid-template-columns:1fr}}
-.panel{background:#0c1322;border:1px solid #1c2f4a;border-radius:12px;padding:18px}
-.panel h2{font-size:12px;color:#7d8ba3;text-transform:uppercase;letter-spacing:.1em;
- margin-bottom:14px;display:flex;justify-content:space-between}
-.esc{background:#0f1830;border:1px solid #1e3a5f;border-radius:10px;
- padding:14px 16px;margin-bottom:12px}
-.esc.attack{border-color:#7f1d1d;background:#1a0f14}
-.esc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.esc-id{font-family:ui-monospace,monospace;font-size:12px;color:#8fb3d9}
-.esc-price{font-weight:800;color:#fbbf24}
-.esc-scope{font-size:13px;color:#c4d2e6;margin-bottom:10px}
-.pipe{display:flex;align-items:center;gap:0;margin:6px 0}
-.step{flex:1;text-align:center;position:relative}
-.step .pt{width:11px;height:11px;border-radius:50%;background:#22304a;
- margin:0 auto;border:2px solid #22304a}
-.step .lb{font-size:9px;color:#5b6b84;margin-top:4px;text-transform:uppercase}
-.step.done .pt{background:#4ade80;border-color:#4ade80;box-shadow:0 0 6px #4ade80aa}
-.step.done .lb{color:#4ade80}
-.step.cur .pt{background:#22d3ee;border-color:#22d3ee;
- box-shadow:0 0 10px #22d3ee;animation:pulse 1.2s infinite}
-.step.cur .lb{color:#22d3ee}
-.step.bad .pt{background:#f87171;border-color:#f87171}
-.step.bad .lb{color:#f87171}
-.step::before{content:'';position:absolute;top:5px;left:-50%;width:100%;
- height:2px;background:#22304a;z-index:-1}
-.step:first-child::before{display:none}
-.step.done::before{background:#4ade80}
-.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;
- letter-spacing:.05em}
-.b-ok{background:#12331f;color:#4ade80}
-.b-warn{background:#33290f;color:#fbbf24}
-.b-bad{background:#331315;color:#f87171}
-.ev{font-family:ui-monospace,monospace;font-size:11.5px;color:#93a4bd;
- padding:6px 0;border-bottom:1px solid #141d30;display:flex;gap:10px}
-.ev:last-child{border:0}
-.ev .seq{color:#22d3ee;min-width:32px}
-.ev .act{color:#e6edf7;min-width:150px}
-.ev .meta{color:#5b6b84;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.flag{color:#f87171;font-weight:700}
-.empty{color:#5b6b84;font-size:13px;padding:20px;text-align:center}
-</style></head><body>
-<header>
-  <div>
-    <div class="logo">⛨ <em>EvidenceGate</em></div>
-    <div class="tag">fé pública programável para a economia de agentes · camada de confiança A2A
-    </div>
-  </div>
-  <div class="live"><span class="dot"></span> AO VIVO · <span id="clock"></span></div>
-</header>
-<div class="kpis">
-  <div class="kpi"><div class="lbl">Custo de inferência</div>
-    <div class="val amber" id="cost">$0</div><div class="sub">NeuraLake, por decisão</div></div>
-  <div class="kpi"><div class="lbl">Chamadas LLM</div>
-    <div class="val cyan" id="ncalls">0</div><div class="sub">juízes + orquestrador</div></div>
-  <div class="kpi"><div class="lbl">Trilha de auditoria</div>
-    <div class="val" id="chain">—</div><div class="sub" id="chain_sub">hash chain</div></div>
-  <div class="kpi"><div class="lbl">Escrows</div>
-    <div class="val" id="nesc">0</div><div class="sub">verificação = condição de settle</div></div>
-</div>
-<div class="cols">
-  <div class="panel"><h2>Escrows <span class="mono">state machine</span></h2>
-    <div id="escrows"></div></div>
-  <div>
-  <div class="panel" style="margin-bottom:18px"><h2>Registry</h2><div id="agents"></div></div>
-  <div class="panel"><h2>Audit trail <span class="mono">append-only · hash-chained</span></h2>
-    <div id="trail"></div></div>
-  </div>
-</div>
-<script>
-const $=id=>document.getElementById(id);
-async function j(u){try{return (await fetch(u)).json()}catch(e){return{}}}
-const HAPPY=['QUOTED','FUNDED','DELIVERED','VERIFIED','RELEASED'];
-const BAD=['REJECTED','DISPUTED','ARBITRATED','RESOLVED'];
-function pipe(state){
-  let steps=HAPPY.slice(),cur=HAPPY.indexOf(state);
-  if(BAD.includes(state)){steps=['QUOTED','FUNDED','DELIVERED',state];cur=3;}
-  return `<div class="pipe">`+steps.map((s,i)=>{
-    const cls=i<cur?'done':(i===cur?(BAD.includes(s)?'bad':'cur'):'');
-    return `<div class="step ${cls}"><div class="pt"></div><div class="lb">${s}</div></div>`;
-  }).join('')+`</div>`;
-}
-async function tick(){
-  const [m,e,a,g]=await Promise.all(
-    [j('/metrics'),j('/escrows'),j('/audit'),j('/agents')]);
-  $('clock').textContent=new Date().toLocaleTimeString('pt-BR');
-  $('cost').textContent='$'+(m.inference_cost||0).toFixed(6);
-  $('ncalls').textContent=m.inference_calls||0;
-  const ok=m.chain&&m.chain.ok;
-  $('chain').textContent=ok?'ÍNTEGRA':'ADULTERADA';
-  $('chain').className='val '+(ok?'green':'red');
-  $('chain_sub').textContent=ok?'hash chain verificada':
-    'tamper detectado @seq '+(m.chain?m.chain.tampered_seq:'?');
-  $('nesc').textContent=(e.escrows||[]).length;
-  $('escrows').innerHTML=(e.escrows||[]).map(x=>`
-    <div class="esc"><div class="esc-top">
-      <span class="esc-id">${x.id}</span><span class="esc-price">$${x.price}</span></div>
-      <div class="esc-scope">${x.scope||''}</div>${pipe(x.state)}
-      <div class="mono" style="font-size:10px;color:#5b6b84">seller ${x.seller_did.slice(0,30)}…
-      </div>
-    </div>`).join('')||'<div class="empty">aguardando primeira transação…</div>';
-  $('agents').innerHTML=(g.agents||[]).map(a=>`
-    <div class="ev"><span class="act">${a.did.slice(0,24)}…</span>
-    <span class="meta">rep ${a.reputation.toFixed(1)} · ${(a.capabilities||[]).join(',')}</span>
-    </div>`
-  ).join('')||'<div class="empty">registry vazio</div>';
-  $('trail').innerHTML=(a.events||[]).slice(-16).reverse().map(x=>{
-    const bad=/denied|invalid|flagged|disputed|rejected/i.test(x.action);
-    return `<div class="ev"><span class="seq">#${x.seq}</span>
-      <span class="act ${bad?'flag':''}">${x.action}</span>
-      <span class="meta">${x.actor_did.slice(0,24)}… ⛓ ${x.event_hash.slice(0,10)}</span></div>`;
-  }).join('')||'<div class="empty">trilha vazia</div>';
-}
-setInterval(tick,1500);tick();
-</script></body></html>"""
-
-
-
-_LANDING_HTML = """<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EvidenceGate — fé pública programável para a economia de agentes</title>
-<meta name="description" content="Escrow condicionado a verificação, identidade
-KYC→KYA e trilha de auditoria hash-chained para transações agent-to-agent.">
-<meta property="og:title" content="EvidenceGate — quando agentes pagam agentes,
-quem confere o trabalho?">
-<meta property="og:description" content="A camada de confiança que falta na
-economia A2A: verificação como condição de settlement.">
-<meta property="og:type" content="website">
-<style>
-*{box-sizing:border-box;margin:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#06080f;color:#e6edf7}
-.wrap{max-width:960px;margin:0 auto;padding:0 24px}
-nav{display:flex;justify-content:space-between;align-items:center;
- padding:20px 0;border-bottom:1px solid #141d30}
-.logo{font-weight:800;font-size:18px}
-.logo em{font-style:normal;background:linear-gradient(90deg,#4ade80,#22d3ee);
- -webkit-background-clip:text;background-clip:text;color:transparent}
-nav a{color:#7d8ba3;text-decoration:none;font-size:13px;margin-left:18px}
-nav a:hover{color:#e6edf7}
-.hero{text-align:center;padding:80px 0 60px}
-h1{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-1px;
- line-height:1.15}
-h1 em{font-style:normal;background:linear-gradient(90deg,#4ade80,#22d3ee);
- -webkit-background-clip:text;background-clip:text;color:transparent}
-.sub{font-size:clamp(15px,2.5vw,19px);color:#8b9ab5;max-width:640px;
- margin:20px auto 32px;line-height:1.6}
-.cta{display:inline-block;background:linear-gradient(90deg,#16a34a,#0891b2);
- color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;
- text-decoration:none;font-size:15px}
-.cta2{display:inline-block;border:1px solid #1c2f4a;color:#8b9ab5;
- padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;
- margin-left:12px}
-.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
- gap:18px;padding:20px 0 50px}
-.pillar{background:#0c1322;border:1px solid #1c2f4a;border-radius:14px;
- padding:26px}
-.pillar .ic{font-size:26px;margin-bottom:14px}
-.pillar h3{font-size:16px;margin-bottom:8px}
-.pillar p{font-size:13.5px;color:#8b9ab5;line-height:1.6}
-section{padding:44px 0;border-top:1px solid #141d30}
-h2{font-size:22px;font-weight:800;margin-bottom:8px}
-h2 small{display:block;font-size:12px;color:#22d3ee;font-weight:600;
- text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
-.steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
-.step{background:#0c1322;border:1px solid #1c2f4a;border-radius:8px;
- padding:10px 14px;font-size:12.5px;color:#8b9ab5}
-.step b{color:#4ade80;font-family:ui-monospace,monospace}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
- gap:14px;margin-top:18px}
-.cell{background:#0c1322;border:1px solid #1c2f4a;border-radius:10px;
- padding:16px;font-size:13px;color:#8b9ab5}
-.cell b{color:#e6edf7;display:block;margin-bottom:4px}
-.faq{margin-top:14px}
-.faq details{background:#0c1322;border:1px solid #1c2f4a;border-radius:10px;
- padding:14px 18px;margin-bottom:10px}
-.faq summary{cursor:pointer;font-size:14px;font-weight:600}
-.faq p{font-size:13px;color:#8b9ab5;margin-top:8px;line-height:1.6}
-footer{border-top:1px solid #141d30;padding:28px 0;text-align:center;
- font-size:12px;color:#5b6b84}
-</style></head><body><div class="wrap">
-<nav><div class="logo">⛨ <em>EvidenceGate</em></div>
-<div><a href="/dashboard">Dashboard ao vivo</a><a href="/docs">API</a></div></nav>
-<div class="hero">
-<h1>Quando agentes pagam agentes,<br><em>quem confere o trabalho?</em></h1>
-<p class="sub">A2A resolveu a conversa. x402 e AP2 resolveram o pagamento.
-Mas settlement é final — ninguém verifica se a entrega presta.
-EvidenceGate é a camada de confiança que falta:
-<strong>escrow condicionado a verificação independente.</strong></p>
-<a class="cta" href="/dashboard">Ver a trilha ao vivo</a>
-<a class="cta2" href="/docs">API docs</a>
-</div>
-<div class="pillars">
-<div class="pillar"><div class="ic">🔏</div><h3>Identidade que responde</h3>
-<p>Principal com KYC real, agente com KYA e AgentCard assinado em Ed25519/did:key.
-Cartão adulterado ou com prompt injection é detectado antes da contratação.</p></div>
-<div class="pillar"><div class="ic">⚖️</div><h3>Verificação antes do dinheiro</h3>
-<p>Stage A determinístico filtra de graça. Painel de 3 juízes cross-model com
-commit-reveal decide 2-de-3 — julgando o artefato, nunca o raciocínio.</p></div>
-<div class="pillar"><div class="ic">⛓</div><h3>Trilha que auditor aceita</h3>
-<p>Cada decisão num log append-only hash-chained. Um caractere adulterado e
-o verificador aponta exatamente onde. Compliance report exportável.</p></div>
-</div>
-<section><h2><small>Como funciona</small>O ciclo completo, sem humano</h2>
-<div class="steps">
-<div class="step"><b>1</b> discover no registry</div>
-<div class="step"><b>2</b> evaluate (reputação × preço)</div>
-<div class="step"><b>3</b> quote + rubrica travada</div>
-<div class="step"><b>4</b> escrow funded</div>
-<div class="step"><b>5</b> entrega + evidence hash</div>
-<div class="step"><b>6</b> stage A + painel de juízes</div>
-<div class="step"><b>7</b> release ou disputa</div>
-<div class="step"><b>8</b> reputação atualizada</div>
-</div></section>
-<section><h2><small>Defesas reais</small>Contra os ataques que a economia A2A vai sofrer</h2>
-<div class="grid2">
-<div class="cell"><b>AgentCard poisoning</b>Texto livre é data, nunca instrução — sanitização +
-flag na trilha.</div>
-<div class="cell"><b>Confused deputy</b>Policy em código: assinatura prova autorização, não
-intenção.</div>
-<div class="cell"><b>Gaming the judge</b>Juiz vê artefato, não CoT — CoT manipulado infla falso
-positivo em 90%.</div>
-<div class="cell"><b>Sybil / reputação</b>Score só muda com outcome settled — review não
-verificado não conta.</div>
-<div class="cell"><b>Payment hijack</b>Funding idempotente, transições guardadas, fail-closed.</div>
-<div class="cell"><b>Log adulterado</b>Hash chain re-derivável — estilo Certificate
-Transparency.</div>
-</div></section>
-<section><h2><small>Roadmap</small>Hackathon hoje, infraestrutura amanhã</h2>
-<div class="grid2">
-<div class="cell"><b>Agora (demo)</b>Escrow + verificação + trilha live, juízes reais na
-NeuraLake, custo/decisão visível.</div>
-<div class="cell"><b>Próximo</b>Adapters x402/AP2, registries ERC-8004
-(identity/reputation/validation) on-chain, settlement em Base.</div>
-<div class="cell"><b>Depois</b>Validação cripto-econômica (stake), TEE/zkML para prova de
-inferência, federação de tribunais.</div>
-</div></section>
-<section><h2><small>Objeções</small>Perguntas que todo mundo faz</h2>
-<div class="faq">
-<details><summary>Juiz LLM decidindo dinheiro não é frágil?</summary>
-<p>Por isso two-stage: o determinístico decide o objetivável de graça; o painel só julga o
-subjetivo, com rubrica travada antes do trabalho e maioria 2-de-3. Juiz que não consegue
-verificar nunca aprova — fail-closed.</p></details>
-<details><summary>Por que não só blockchain?</summary>
-<p>O problema não é o rail de pagamento — é a verificação. O state machine do escrow isola a
-interface: pluga em x402, AP2 ou Base quando fizer sentido, sem reescrever nada.</p></details>
-<details><summary>E se os juízes coludirem?</summary>
-<p>Votos selados (commit-reveal) anti-herding, juízes em modelos diferentes, e juiz também tem
-reputação: aprovar lixo contestado derruba o score dele.</p></details>
-</div></section>
-<footer>EvidenceGate · fé pública programável · desafio 05 — NeuraLake The Launch Hackathon</footer>
-</div></body></html>"""
-
-_VOICE_HTML = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EvidenceGate — Auditor de Voz</title>
-<style>
-*{box-sizing:border-box;margin:0}
-body{background:#0a0e1a;color:#e8ecf4;font-family:system-ui,sans-serif;
-min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{background:#111827;border:1px solid #1f2b45;border-radius:16px;
-max-width:520px;width:100%;padding:32px;text-align:center}
-h1{font-size:22px;margin-bottom:6px}
-.sub{color:#8b98b8;font-size:14px;margin-bottom:24px}
-.status{background:#0a0e1a;border:1px solid #1f2b45;border-radius:10px;
-padding:14px;font-size:13px;color:#8b98b8;margin-bottom:20px;min-height:52px}
-.status b{color:#e8ecf4}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;
-background:#3b4a6b;margin-right:6px}
-.dot.on{background:#22c55e;box-shadow:0 0 8px #22c55e}
-button{background:#0ea5e9;color:#04121c;border:0;border-radius:10px;
-padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;margin:4px}
-button:hover{background:#38bdf8}
-button:disabled{opacity:.4;cursor:default}
-button.stop{background:#ef4444;color:#fff}
-.log{text-align:left;font-size:11px;color:#5b6a8f;max-height:120px;
-overflow:auto;margin-top:16px;font-family:ui-monospace,monospace}
-</style></head><body><div class="card">
-<h1>EvidenceGate</h1>
-<div class="sub">Auditor de voz &mdash; Agora ConvoAI + NeuraLake</div>
-<div class="status" id="st"><span class="dot" id="dot"></span>
-<b id="stt">desconectado</b><br><span id="sts">clique em conectar e permita o microfone</span></div>
-<button id="btn" onclick="go()">Conectar e falar</button>
-<button class="stop" id="stop" onclick="end()" style="display:none">Encerrar</button>
-<div class="log" id="log"></div>
-<script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.3/AgoraRTC_N-production.js"></script>
-<script>
-let client=null,mic=null,agentId=null;
-const $=id=>document.getElementById(id);
-function log(m){$("log").innerHTML+=m+"<br>";$("log").scrollTop=1e6}
-function st(t,s,on){$("stt").textContent=t;$("sts").textContent=s;
-$("dot").className="dot"+(on?" on":"")}
-async function go(){
-try{
-st("conectando","pedindo config do servidor...");$("btn").disabled=true;
-const cfg=(await (await fetch("/voice/config")).json()).data;
-log("canal: "+cfg.channel_name+" uid:"+cfg.uid);
-client=AgoraRTC.createClient({mode:"rtc",codec:"vp8"});
-client.on("user-published",async(u,mt)=>{
-await client.subscribe(u,mt);
-if(mt==="audio"){u.audioTrack.play();log("audio remoto tocando (agente)")}});
-await client.join(cfg.app_id,cfg.channel_name,cfg.token,parseInt(cfg.uid));
-st("no canal","entrando com microfone...");
-mic=await AgoraRTC.createMicrophoneAudioTrack();
-await client.publish([mic]);
-st("chamando agente","iniciando ConvoAI...");
-const r=await (await fetch("/voice/start",{method:"POST",
-headers:{"Content-Type":"application/json"},body:JSON.stringify({
-channelName:cfg.channel_name,rtcUid:parseInt(cfg.agent_uid),userUid:parseInt(cfg.uid)})})).json();
-if(r.code!==0)throw new Error(JSON.stringify(r));
-agentId=r.data.agent_id;
-log("agent_id: "+agentId);
-st("AO VIVO","fale agora — o auditor responde com dados reais do registry",true);
-$("btn").style.display="none";$("stop").style.display="inline-block";
-}catch(e){log("ERRO: "+(e.message||e));st("erro",e.message||String(e));
-$("btn").disabled=false;}}
-async function end(){
-if(agentId)try{await fetch("/voice/stop",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({agentId:agentId})})}catch(e){}
-if(mic){mic.close();mic=null}
-if(client){await client.leave();client=null}
-agentId=null;st("desconectado","sessao encerrada");
-$("stop").style.display="none";$("btn").style.display="inline-block";
-$("btn").disabled=false;}
-</script></div></body></html>"""
-
