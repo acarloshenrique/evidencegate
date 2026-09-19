@@ -121,9 +121,9 @@ Status: API pública NÃO expõe parâmetro de memória (frontend beta.neuraserv
 ```
 ID: T012
 Título: Voz Agora ConvoAI → NeuraLake (agora-recipe apontando CUSTOM_LLM_URL pro nosso backend)
-Dono: (livre)
+Dono: Jazz + Devin  [em curso]
 Depende de: T009
-Pronto quando: agente de voz responde status de um escrow por voz usando a NeuraLake como LLM
+Status: API pública na OCI (jazz-oracle/naia-oracle-arsenal): http://163.192.115.82:8000 — /chat/completions live. CUSTOM_LLM_URL do recipe apontado. Falta: subir o agent server do recipe e testar a chamada ConvoAI.
 ```
 
 ```
