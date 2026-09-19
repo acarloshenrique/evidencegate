@@ -81,6 +81,7 @@ export function TracePanel() {
       api.trace(id).then(setFacts).catch(() => setFacts(null))
     })
     cyRef.current = cy
+    ;(window as unknown as { __cy?: cytoscape.Core }).__cy = cy
     return () => cy.destroy()
   }, [graph])
 

@@ -126,10 +126,10 @@ export default function App() {
             {liveBadge}
           </div>
           <div className="flex gap-3 text-[11px] text-muted-foreground">
-            <a href="/" className="hover:text-foreground">landing</a>
-            <a href="/voice" className="hover:text-foreground">voz</a>
-            <a href="/design" className="hover:text-foreground">design</a>
-            <a href="/docs" className="hover:text-foreground">api</a>
+            <a href="/" className="hover:text-foreground">Home</a>
+            <a href="/design" className="hover:text-foreground">Design</a>
+            <a href="/voice" className="hover:text-foreground">Voz</a>
+            <a href="/docs" className="hover:text-foreground">API</a>
           </div>
         </div>
       </aside>

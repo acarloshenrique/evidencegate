@@ -200,6 +200,7 @@ strong, b { font-weight: 450; }
   color: var(--mute-2); font-size: 15px; font-weight: 300;
 }
 .nav .links a:hover { color: var(--ink); text-decoration: none; }
+.nav .links a[aria-current="page"] { color: var(--ink); font-weight: 450; }
 
 .wordmark {
   display: inline-flex; align-items: center; gap: var(--s-8);
@@ -327,4 +328,5 @@ details.faq .faq-a { padding-top: var(--s-16); max-width: 65ch; }
   .band  { padding: var(--s-64) 0; }
   .nav .links { gap: var(--s-16); }
   .nav .links a { font-size: 14px; }
+  .nav .links .btn { display: none; }   /* CTA cede lugar aos links no mobile */
 }

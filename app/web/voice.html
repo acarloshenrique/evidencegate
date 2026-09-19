@@ -3,9 +3,10 @@
 <title>EvidenceGate — auditor de voz</title>
 <link rel="stylesheet" href="/static/eg.css">
 <style>
-body{min-height:100vh;position:relative;overflow:hidden}
-.stage{position:relative;min-height:100vh;display:flex;align-items:center;
-  justify-content:center;padding:100px 20px 60px}
+.hero{position:relative;min-height:100vh;overflow:hidden;display:flex;
+  flex-direction:column}
+.stage{position:relative;flex:1;display:flex;align-items:center;
+  justify-content:center;padding:120px 20px 80px}
 h1{font-size:22px;font-weight:300;letter-spacing:-0.02em}
 .card{width:100%;max-width:480px;border-radius:var(--r-xl);
   padding:36px;text-align:center}
@@ -24,13 +25,19 @@ h1{font-size:22px;font-weight:300;letter-spacing:-0.02em}
   overflow:auto;margin-top:18px;font-feature-settings:"tnum";line-height:1.7}
 .nav-spacer .links a{color:var(--mute-2)}
 </style></head><body>
-<div class="mesh"><i></i><i></i><i></i><i></i><i></i></div>
+<div class="hero"><div class="mesh"><i></i><i></i><i></i><i></i><i></i></div>
 <nav class="nav glass"><div class="nav-in">
   <a class="wordmark" href="/">
     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#533afd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5v5.2c0 5-3.4 9.3-8 10.8-4.6-1.5-8-5.8-8-10.8V5.5L12 2z"/><path d="M8.5 12l2.4 2.4 4.6-4.8"/></svg>
     EvidenceGate</a>
-  <div class="links"><a href="/">Home</a><a href="/dashboard">Dashboard</a>
-    <a href="/docs">API</a></div>
+  <div class="links">
+    <a href="/">Home</a>
+    <a href="/design">Design</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/voice" aria-current="page">Voz</a>
+    <a href="/docs">API</a>
+    <a class="btn btn-primary btn-sm" href="/dashboard">Ver ao vivo</a>
+  </div>
 </div></nav>
 <div class="stage"><div class="card glass">
   <h1 class="h-lg">Auditor de voz</h1>
@@ -43,7 +50,7 @@ h1{font-size:22px;font-weight:300;letter-spacing:-0.02em}
     <button class="btn stop" id="stop" onclick="end()" style="display:none">Encerrar</button>
   </div>
   <div class="log" id="log"></div>
-</div></div>
+</div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.3/AgoraRTC_N-production.js"></script>
 <script>
 let client=null,mic=null,agentId=null;
