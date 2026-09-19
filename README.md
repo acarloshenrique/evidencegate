@@ -87,3 +87,13 @@ uv run uvicorn app.main:app --port 8000
 - `BOARD.md` — tarefas, donos e critérios de "pronto" (metodologia squad)
 - `docs/` — PRD, dossiê antifraude, deep research A2A, metodologia,
   checklist de produção, auditor de produção, kit de pitch
+
+## Dashboard React
+
+O console de auditoria (`/dashboard`) vive em `web/` (React 19 + Vite +
+Tailwind 4 + shadcn/ui): tabela de escrows, detalhe do caso (rubrica,
+evidencia, votos commit-reveal, ledger, eventos), timeline da trilha com
+marcacao de tamper, custo por chamada e reputacao dos agentes. Build em
+`web/dist` servido pela mesma origem; sem build, `/dashboard` cai no
+console single-file. `scripts/seed_dashboard.py` popula casos de demo
+sem gastar credito.

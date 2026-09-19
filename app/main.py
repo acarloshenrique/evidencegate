@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -107,6 +108,15 @@ def create_app(nl: Any = None) -> FastAPI:
         yield
 
     app = FastAPI(title="EvidenceGate", version="0.1.0", lifespan=lifespan)
+
+    # O dashboard React roda em http://localhost:5173 durante o desenvolvimento;
+    # em produção ele é servido por este mesmo processo (mesma origem).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     def svc(request: Request) -> Services:
         return request.app.state.svc
@@ -218,14 +228,28 @@ def create_app(nl: Any = None) -> FastAPI:
 
     @app.get("/escrow/{escrow_id}")
     def get_escrow(escrow_id: str, s: Services = Depends(svc)):
+        """Visão completa de um caso: escrow + quote (rubrica travada) + razão +
+        votos do painel + trilha. É o que o auditor precisa ver numa tela só."""
         row = s.db.execute("SELECT * FROM escrows WHERE id=?",
                            (escrow_id,)).fetchone()
         if not row:
             raise HTTPException(404, "unknown escrow")
+        escrow = dict(row)
+        if escrow.get("evidence"):
+            escrow["evidence"] = json.loads(escrow["evidence"])
+        quote = s.db.execute("SELECT * FROM quotes WHERE id=?",
+                             (row["quote_id"],)).fetchone()
+        quote = dict(quote) if quote else None
+        if quote:
+            quote["criteria"] = json.loads(quote["criteria"])
         ledger = [dict(r) for r in s.db.execute(
-            "SELECT account,delta,reason,ts FROM ledger WHERE escrow_id=?",
+            "SELECT account,delta,reason,ts FROM ledger WHERE escrow_id=? ORDER BY id",
             (escrow_id,))]
-        return {"escrow": dict(row), "ledger": ledger}
+        votes = [dict(r) for r in s.db.execute(
+            "SELECT judge,commit_hash,vote,confidence,rationale,revealed "
+            "FROM judge_votes WHERE escrow_id=?", (escrow_id,))]
+        return {"escrow": escrow, "quote": quote, "ledger": ledger,
+                "votes": votes, "events": s.audit.for_escrow(escrow_id)}
 
     # --- audit / report -----------------------------------------------------
     @app.get("/audit")
@@ -269,8 +293,9 @@ def create_app(nl: Any = None) -> FastAPI:
     def design():
         return _page("design.html")
 
-    @app.get("/dashboard", response_class=HTMLResponse)
-    def dashboard():
+    @app.get("/dashboard/legacy", response_class=HTMLResponse)
+    def dashboard_legacy():
+        """Console single-file — fallback quando nao ha build React."""
         return _page("dashboard.html")
 
     # --- voice bridge (Agora ConvoAI BYOK -> CUSTOM_LLM_URL) -----------------
@@ -372,7 +397,18 @@ def create_app(nl: Any = None) -> FastAPI:
         except httpx.HTTPError as e:
             raise HTTPException(502, f"agent server: {e}") from e
 
+    # Dashboard React (web/): buildado em web/dist, servido na mesma origem da API.
+    # Sem build presente, /dashboard cai no console single-file.
+    if _WEB_DIST.is_dir():
+        app.mount("/dashboard",
+                  StaticFiles(directory=_WEB_DIST, html=True), name="dashboard")
+    else:
+        app.get("/dashboard", response_class=HTMLResponse)(dashboard_legacy)
+
     return app
+
+
+_WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 app = create_app()

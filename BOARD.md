@@ -107,7 +107,13 @@ ID: T010
 Título: Dashboard ao vivo — ledger, trilha, custo por decisão
 Dono: Jazz + Devin  [feito]
 Depende de: T009
-FEITO: GET /dashboard (HTML single-file, polling 1.5s) + GET /escrows + GET /metrics (custo/chamadas/chain). Uvicorn :8800/dashboard
+FEITO (v1): GET /dashboard (HTML single-file, polling 1.5s) + GET /escrows + GET /metrics (custo/chamadas/chain). Uvicorn :8800/dashboard
+FEITO (v2 React): web/ com React 19 + Vite + Tailwind 4 + shadcn/ui, polling 1.5s via react-query.
+  Painéis: stat cards (trilha íntegra, custo total, custo por decisão liquidada, valor travado),
+  tabela de escrows -> sheet do caso (rubrica travada + evidência + votos commit-reveal + ledger + eventos),
+  timeline da trilha hash-encadeada com marcação de adulteração, gráfico de custo por chamada de juiz, agentes+reputação.
+  Backend: CORS dev, GET /escrow/{id} agora devolve quote/votes/events, /dashboard serve web/dist (legado em /dashboard/legacy).
+  scripts/seed_dashboard.py popula casos de demo offline. pytest 13/13, ruff limpo, npm run build limpo.
 ```
 
 ```
