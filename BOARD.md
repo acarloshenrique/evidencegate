@@ -123,7 +123,7 @@ ID: T012
 Título: Voz Agora ConvoAI → NeuraLake (agora-recipe apontando CUSTOM_LLM_URL pro nosso backend)
 Dono: Jazz + Devin  [em curso]
 Depende de: T009
-Status: API pública na OCI (jazz-oracle/naia-oracle-arsenal): http://163.192.115.82:8000 — /chat/completions live. CUSTOM_LLM_URL do recipe apontado. Falta: subir o agent server do recipe e testar a chamada ConvoAI.
+Status: QUASE COMPLETO. Agent server systemd (porta 8010) + /chat/completions com SSE streaming + pagina /voice (RTC client) + HTTPS https://evidencegate.163-192-115-82.sslip.io. startAgent retornou agent_id real via REST. Falta so: teste humano com mic — abrir /voice, falar, ouvir auditor.
 ```
 
 ```
