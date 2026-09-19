@@ -28,7 +28,7 @@ from .crypto import b58decode, b58encode
 from .db import Database
 from .escrow import EscrowEngine, EscrowError
 from .policy import Policy, PolicyEngine
-from .registry import Registry
+from .registry import Registry, sanitize_untrusted
 from .report import compliance_report
 from .schemas import (
     AgentIn,
@@ -146,7 +146,22 @@ def create_app(nl: Any = None) -> FastAPI:
 
     @app.get("/agents")
     def list_agents(capability: str | None = None, s: Services = Depends(svc)):
-        return {"agents": s.registry.list_agents(capability)}
+        agents = s.registry.list_agents(capability)
+        for a in agents:
+            card = a.get("card") or {}
+            flagged = False
+            for v in card.values():
+                if isinstance(v, str):
+                    _, f = sanitize_untrusted(v)
+                    flagged = flagged or f
+                elif isinstance(v, list):
+                    for item in v:
+                        if isinstance(item, dict):
+                            _, f = sanitize_untrusted(
+                                str(item.get("description", "")))
+                            flagged = flagged or f
+            a["injection_flagged"] = flagged
+        return {"agents": agents}
 
     @app.get("/agents/{did}/card")
     def get_card(did: str, s: Services = Depends(svc)):
@@ -276,6 +291,13 @@ def create_app(nl: Any = None) -> FastAPI:
             "FROM escrows e JOIN quotes q ON e.quote_id=q.id "
             "ORDER BY e.created_at DESC").fetchall()
         return {"escrows": [dict(r) for r in rows]}
+
+    @app.get("/ledger")
+    def ledger_events(s: Services = Depends(svc)):
+        rows = s.db.execute(
+            "SELECT account,delta,reason,escrow_id,ts FROM ledger "
+            "ORDER BY ts DESC LIMIT 100").fetchall()
+        return {"ledger": [dict(r) for r in rows]}
 
     @app.get("/metrics")
     def metrics(s: Services = Depends(svc)):
