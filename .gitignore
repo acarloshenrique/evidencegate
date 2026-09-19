@@ -13,3 +13,5 @@ pytest-cache-files-*/
 *.db-shm
 data/
 logs/
+node_modules/
+web/dist/
