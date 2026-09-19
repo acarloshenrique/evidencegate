@@ -5,8 +5,7 @@ import json
 import pytest
 
 from app.audit import AuditTrail
-from app.crypto import (canonical_json, generate_keypair, hash_obj, sign,
-                        verify)
+from app.crypto import canonical_json, generate_keypair, sign, verify
 from app.db import Database
 from app.escrow import EscrowEngine, EscrowError
 from app.neuralake import NeuraLake

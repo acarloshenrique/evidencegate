@@ -99,6 +99,7 @@ Worktree: ../evidencegate-devin
 Branch: feature/devin-core-trust-layer
 Depende de: T005, T006
 Pronto quando: /docs mostra endpoints; teste de integração cobre fluxo feliz via HTTP
+FEITO: 16 endpoints, POST /chat/completions OpenAI-compatible (ponte voz Agora), testes 13/13, ruff limpo
 ```
 
 ```

@@ -15,7 +15,8 @@ ED25519_MULTICODEC = b"\xed\x01"
 
 def canonical_json(obj: Any) -> bytes:
     """RFC 8785-style deterministic serialization: sorted keys, no whitespace, UTF-8."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False).encode("utf-8")
 
 
 def sha256(data: bytes | str) -> str:

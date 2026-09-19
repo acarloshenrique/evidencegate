@@ -23,8 +23,10 @@ def compliance_report(audit: AuditTrail, escrow_id: str) -> dict[str, Any]:
         lines.append(f"| {e['seq']} | {e['ts']:.0f} | {e['actor_did'][:24]} | "
                      f"{e['action']} | {detail[:120]} |")
     chain = audit.verify_chain()
-    lines += ["", f"**Trilha íntegra:** {'SIM' if chain['ok'] else 'NAO — adulterada em seq ' + str(chain.get('tampered_seq'))}",
-              f"**Eventos:** {len(events)} · **Event hash head:** "
-              f"`{events[-1]['event_hash'][:16]}...`" if events else ""]
-    return {"markdown": "\n".join(l for l in lines if l is not None),
+    integ = ("SIM" if chain["ok"]
+             else "NAO — adulterada em seq " + str(chain.get("tampered_seq")))
+    tail = (f"**Eventos:** {len(events)} · **Event hash head:** "
+            f"`{events[-1]['event_hash'][:16]}...`" if events else "")
+    lines += ["", f"**Trilha íntegra:** {integ}", tail]
+    return {"markdown": "\n".join(x for x in lines if x is not None),
             "events": events, "chain_ok": chain["ok"]}

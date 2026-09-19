@@ -144,7 +144,7 @@ class EscrowEngine:
         row = self.db.execute(
             "SELECT q.* FROM escrows e JOIN quotes q ON e.quote_id=q.id WHERE e.id=?",
             (escrow_id,)).fetchone()
-        price, buyer, seller = row["price"], row["buyer_did"], row["seller_did"]
+        price, seller = row["price"], row["seller_did"]
         if verdict == "release":
             self._move(escrow_id, "VERIFIED", REGISTRY_DID, {"panel": panel_summary})
             self._ledger(f"escrow:{escrow_id}", -price, "release", escrow_id)

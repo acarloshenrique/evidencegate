@@ -8,7 +8,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS principals (
     id          TEXT PRIMARY KEY,
     legal_name  TEXT NOT NULL,
-    doc_hash    TEXT NOT NULL,            -- hash do documento legal (CNPJ/CPF), nunca o doc em claro
+    doc_hash    TEXT NOT NULL,            -- hash do doc legal (CNPJ/CPF), nunca em claro
     created_at  REAL NOT NULL
 );
 
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS balances (
 
 class Database:
     def __init__(self, path: str | Path = ":memory:"):
-        self.conn = sqlite3.connect(str(path))
+        self.conn = sqlite3.connect(str(path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")

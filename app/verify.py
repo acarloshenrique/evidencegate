@@ -104,7 +104,9 @@ class JudgePanel:
     def _ask(self, judge: str, prompt: str) -> dict:
         try:
             r = self.nl.complete(
-                [{"role": "system", "content": "Think briefly (under 400 tokens), then output ONLY the strict JSON verdict."},
+                [{"role": "system", "content":
+                  "Think briefly (under 400 tokens), then output ONLY the strict"
+                  " JSON verdict."},
                  {"role": "user", "content": prompt}], model=judge,
                 max_tokens=3000, temperature=0.1)
             v = self._extract_json(r["content"])
