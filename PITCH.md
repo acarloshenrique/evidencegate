@@ -26,6 +26,8 @@ Apontar pro contador de custo: **"Tudo isso por um centavo de inferência."**
 
 Frase de impacto: **"O juiz julga o artefato, nunca o raciocínio do agente — porque CoT manipulado infla falso positivo em 90%."**
 
+> "E cada decisão vem com o porquê — não o porquê que um modelo inventou, o porquê derivado DOS DADOS:  transforma cada evento da trilha em justificativa citando hash, votos, threshold, delta de reputação. Explicação por template determinístico — zero alucinação na auditoria. É o contrário de pedir pro LLM explicar a si mesmo."
+
 ## (2:40–3:20) Por que isso é empresa, não feature (valor de negócio 15%)
 
 > "ERC-8004 já separou identity / reputation / validation em três registries — a gente implementou os três localmente, pluggable pra on-chain depois. A pergunta 'esse agente tinha autorização, naquele escopo?' é o que banco, seguradora e compliance vão exigir antes de deixar agente mover dinheiro. A gente é a camada que responde isso com prova criptográfica — não com log."
