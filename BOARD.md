@@ -112,9 +112,9 @@ Pronto quando: roda o demo e a tela mostra estados do escrow e custo acumulado e
 ```
 ID: T011
 Título: Cross Memory no auditor — estado do caso compartilhado entre juízes
-Dono: (livre)
+Dono: Jazz + Devin  [pesquisado]
 Depende de: T007
-Pronto quando: confirmar com NeuraLake o parâmetro; medir tokens com/sem e registrar economia no ledger
+Status: API pública NÃO expõe parâmetro de memória (frontend beta.neuraserver.cloud só manda campos OpenAI padrão; probes com session_id e memória implícita não recordam). Nosso painel JÁ implementa o equivalente: cada juiz recebe case state (scope+criteria+evidence), nunca histórico — economia real de tokens vs. reenviar contexto. Perguntar o parâmetro aos mentores NeuraLake no evento; pitch pode reivindicar "cross-model case state" como implementação própria.
 ```
 
 ```
