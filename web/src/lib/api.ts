@@ -58,6 +58,8 @@ export interface AuditEvent {
   prev_hash: string
   event_hash: string
   payload?: Record<string, unknown>
+  summary?: string
+  why?: string
 }
 
 export interface LedgerEntry {

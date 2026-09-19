@@ -82,6 +82,12 @@ export function AuditTrailPanel({
                   <div className="font-mono text-[10px] text-muted-foreground">
                     {shortDid(e.actor_did, 22)}
                   </div>
+                  {e.why && (
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      <span className="font-semibold text-foreground/80">{e.summary}</span>
+                      {' — '}{e.why}
+                    </p>
+                  )}
                   <div className="font-mono text-[10px] text-muted-foreground/70">
                     {shortHash(e.prev_hash, 8)} → {shortHash(e.event_hash, 8)}
                   </div>

@@ -27,6 +27,7 @@ from .audit import AuditTrail
 from .crypto import b58decode, b58encode
 from .db import Database
 from .escrow import EscrowEngine, EscrowError
+from .explain import explain_chain, explain_event
 from .policy import Policy, PolicyEngine
 from .registry import Registry, sanitize_untrusted
 from .report import compliance_report
@@ -82,7 +83,7 @@ class Services:
             from .neuralake import NeuraLake
             if not os.getenv("NEURALAKE_API_KEY"):
                 raise HTTPException(503, "NeuraLake credentials not configured")
-            self._nl = NeuraLake()
+            self._nl = NeuraLake(db=self.db)
         return self._nl
 
     def seller_sk(self, did: str) -> bytes:
@@ -265,17 +266,20 @@ def create_app(nl: Any = None) -> FastAPI:
             "SELECT judge,commit_hash,vote,confidence,rationale,revealed "
             "FROM judge_votes WHERE escrow_id=?", (escrow_id,))]
         return {"escrow": escrow, "quote": quote, "ledger": ledger,
-                "votes": votes, "events": s.audit.for_escrow(escrow_id)}
+                "votes": votes,
+                "events": explain_chain(s.audit.for_escrow(escrow_id))}
 
     # --- audit / report -----------------------------------------------------
     @app.get("/audit")
     def audit_events(escrow_id: str | None = None, s: Services = Depends(svc)):
         if escrow_id:
-            return {"events": s.audit.for_escrow(escrow_id)}
+            return {"events": explain_chain(s.audit.for_escrow(escrow_id))}
         rows = s.db.execute(
-            "SELECT seq,ts,actor_did,action,payload_hash,prev_hash,event_hash "
-            "FROM events ORDER BY seq").fetchall()
-        return {"events": [dict(r) for r in rows]}
+            "SELECT seq,ts,actor_did,action,payload,payload_hash,prev_hash,"
+            "event_hash FROM events ORDER BY seq").fetchall()
+        events = [dict(r) | {"payload": json.loads(r["payload"])}
+                  for r in rows]
+        return {"events": explain_chain(events)}
 
     @app.get("/audit/verify")
     def audit_verify(s: Services = Depends(svc)):
@@ -284,6 +288,18 @@ def create_app(nl: Any = None) -> FastAPI:
     @app.get("/report")
     def report(escrow_id: str, s: Services = Depends(svc)):
         return compliance_report(s.audit, escrow_id)
+
+    @app.get("/explain")
+    def explain(s: Services = Depends(svc)):
+        """Every event explained from its own data — deterministic, no LLM."""
+        return {"events": explain_chain(s.audit.events())}
+
+    @app.get("/explain/{seq}")
+    def explain_one(seq: int, s: Services = Depends(svc)):
+        ev = next((e for e in s.audit.events() if e["seq"] == seq), None)
+        if not ev:
+            return {"error": "not found"}
+        return {**ev, **explain_event(ev)}
 
     @app.get("/escrows")
     def list_escrows(s: Services = Depends(svc)):
@@ -315,6 +331,20 @@ def create_app(nl: Any = None) -> FastAPI:
 
     @app.get("/metrics")
     def metrics(s: Services = Depends(svc)):
+        # persisted calls are the source of truth — survives restarts;
+        # in-memory list is the fallback for clients without a db (tests).
+        agg = s.db.execute(
+            "SELECT COUNT(*) c, COALESCE(SUM(cost),0.0) t "
+            "FROM inference_calls").fetchone()
+        if agg["c"]:
+            calls = [dict(r) for r in s.db.execute(
+                "SELECT model_requested,model_used,prompt_tokens,"
+                "completion_tokens,cost FROM inference_calls "
+                "ORDER BY id DESC LIMIT 20").fetchall()]
+            return {"inference_cost": agg["t"],
+                    "inference_calls": agg["c"],
+                    "calls": calls,
+                    "chain": s.audit.verify_chain()}
         calls = getattr(s._nl, "calls", [])
         return {"inference_cost": getattr(s._nl, "total_cost", 0.0),
                 "inference_calls": len(calls),
