@@ -94,7 +94,9 @@ Pronto quando: scripts/demo.py --live roda sem exceção, custo total < $0.10, c
 ```
 ID: T009
 Título: API FastAPI expondo registry/quote/escrow/verify/audit (app/main.py)
-Dono: (livre)
+Dono: Jazz + Devin  [peguei]
+Worktree: ../evidencegate-devin
+Branch: feature/devin-core-trust-layer
 Depende de: T005, T006
 Pronto quando: /docs mostra endpoints; teste de integração cobre fluxo feliz via HTTP
 ```
