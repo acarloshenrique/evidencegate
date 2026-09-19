@@ -82,7 +82,9 @@ def explain_event(ev: dict[str, Any]) -> dict[str, Any]:
                f"{p.get('evidence_hash', '')[:16]}...), nao a promessa. "
                "Entrega sem evidencia nao chega na banca.")
     elif a == "verify.panel":
-        votes = p.get("votes", [])
+        votes = (p.get("votes") or
+                 [{"judge": j, "vote": "?", "confidence": "?"}
+                  for j in p.get("judges", [])])
         refs = {"verdict": p.get("verdict"), "votes": votes,
                 "approvals": p.get("approvals"),
                 "avg_confidence": p.get("avg_confidence")}
