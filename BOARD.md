@@ -107,7 +107,14 @@ ID: T010
 Título: Dashboard ao vivo — ledger, trilha, custo por decisão
 Dono: Jazz + Devin  [feito]
 Depende de: T009
-FEITO (v1): GET /dashboard (HTML single-file, polling 1.5s) + GET /escrows + GET /metrics (custo/chamadas/chain). Uvicorn :8800/dashboard
+FEITO (v2): merge do dashboard React do Kauan (t010-live-dashboard) —
+  app shell com sidebar (Visao geral/Escrows/Auditoria/Agentes/Custos),
+  tabela + detalhe do caso (rubrica, evidencia, votos, ledger, eventos),
+  timeline com tamper-seq, custo por chamada, reputacao. Tokens do design
+  system aplicados (indigo/navy/Inter). /dashboard/legacy = single-file.
+  API: /ledger, list_escrows com votos, agents com flag. seed_dashboard.py
+  populou 4 casos + 1 verify LIVE real (reasoning falhou -> fail-closed,
+  2-de-3 RELEASED, /bin/bash.003).
 FEITO (v2 React): web/ com React 19 + Vite + Tailwind 4 + shadcn/ui, polling 1.5s via react-query.
   Painéis: stat cards (trilha íntegra, custo total, custo por decisão liquidada, valor travado),
   tabela de escrows -> sheet do caso (rubrica travada + evidência + votos commit-reveal + ledger + eventos),
