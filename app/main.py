@@ -17,8 +17,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from .audit import AuditTrail
 from .crypto import b58decode, b58encode
@@ -46,6 +47,8 @@ from .schemas import (
     VerifyOut,
 )
 from .verify import JudgePanel, stage_a
+
+_AGORA_AGENT_URL = os.getenv("AGORA_AGENT_URL", "http://localhost:8010")
 
 
 class Services:
@@ -286,10 +289,29 @@ def create_app(nl: Any = None) -> FastAPI:
                 messages.append({"role": role, "content": str(content)})
         r = s.nl.complete(messages, model=body.get("model", "auto"),
                           max_tokens=int(body.get("max_tokens", 512)))
+        cid = "chatcmpl-" + uuid.uuid4().hex[:24]
+        created = int(time.time())
+        if body.get("stream"):
+            # Agora CustomLLM requires SSE; upstream is non-streaming so we
+            # emit the full completion as chunked deltas.
+            def sse():
+                chunk = {"id": cid, "object": "chat.completion.chunk",
+                         "created": created, "model": r["model_used"],
+                         "choices": [{"index": 0, "finish_reason": None,
+                                      "delta": {"role": "assistant",
+                                                "content": r["content"]}}]}
+                end = {"id": cid, "object": "chat.completion.chunk",
+                       "created": created, "model": r["model_used"],
+                       "choices": [{"index": 0, "finish_reason": "stop",
+                                    "delta": {}}]}
+                yield f"data: {json.dumps(chunk)}\n\n"
+                yield f"data: {json.dumps(end)}\n\n"
+                yield "data: [DONE]\n\n"
+            return StreamingResponse(sse(), media_type="text/event-stream")
         return {
-            "id": "chatcmpl-" + uuid.uuid4().hex[:24],
+            "id": cid,
             "object": "chat.completion",
-            "created": int(time.time()),
+            "created": created,
             "model": r["model_used"],
             "choices": [{"index": 0, "finish_reason": "stop",
                          "message": {"role": "assistant",
@@ -298,6 +320,43 @@ def create_app(nl: Any = None) -> FastAPI:
                       "completion_tokens": r["completion_tokens"],
                       "total_tokens": r["prompt_tokens"] + r["completion_tokens"]},
         }
+
+    # --- voice demo (Agora RTC client + agent control proxy) -----------------
+    @app.get("/voice", response_class=HTMLResponse)
+    def voice_page():
+        return _VOICE_HTML
+
+    @app.get("/voice/config")
+    def voice_config(channel: str = "", uid: int = 0):
+        params = {}
+        if channel:
+            params["channel"] = channel
+        if uid:
+            params["uid"] = uid
+        try:
+            r = httpx.get(f"{_AGORA_AGENT_URL}/get_config",
+                          params=params, timeout=10)
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"agent server: {e}") from e
+
+    @app.post("/voice/start")
+    def voice_start(body: dict[str, Any]):
+        try:
+            r = httpx.post(f"{_AGORA_AGENT_URL}/startAgent",
+                           json=body, timeout=15)
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"agent server: {e}") from e
+
+    @app.post("/voice/stop")
+    def voice_stop(body: dict[str, Any]):
+        try:
+            r = httpx.post(f"{_AGORA_AGENT_URL}/stopAgent",
+                           json=body, timeout=15)
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"agent server: {e}") from e
 
     return app
 
@@ -583,3 +642,78 @@ reputação: aprovar lixo contestado derruba o score dele.</p></details>
 </div></section>
 <footer>EvidenceGate · fé pública programável · desafio 05 — NeuraLake The Launch Hackathon</footer>
 </div></body></html>"""
+
+_VOICE_HTML = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EvidenceGate — Auditor de Voz</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#0a0e1a;color:#e8ecf4;font-family:system-ui,sans-serif;
+min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#111827;border:1px solid #1f2b45;border-radius:16px;
+max-width:520px;width:100%;padding:32px;text-align:center}
+h1{font-size:22px;margin-bottom:6px}
+.sub{color:#8b98b8;font-size:14px;margin-bottom:24px}
+.status{background:#0a0e1a;border:1px solid #1f2b45;border-radius:10px;
+padding:14px;font-size:13px;color:#8b98b8;margin-bottom:20px;min-height:52px}
+.status b{color:#e8ecf4}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+background:#3b4a6b;margin-right:6px}
+.dot.on{background:#22c55e;box-shadow:0 0 8px #22c55e}
+button{background:#0ea5e9;color:#04121c;border:0;border-radius:10px;
+padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;margin:4px}
+button:hover{background:#38bdf8}
+button:disabled{opacity:.4;cursor:default}
+button.stop{background:#ef4444;color:#fff}
+.log{text-align:left;font-size:11px;color:#5b6a8f;max-height:120px;
+overflow:auto;margin-top:16px;font-family:ui-monospace,monospace}
+</style></head><body><div class="card">
+<h1>EvidenceGate</h1>
+<div class="sub">Auditor de voz &mdash; Agora ConvoAI + NeuraLake</div>
+<div class="status" id="st"><span class="dot" id="dot"></span>
+<b id="stt">desconectado</b><br><span id="sts">clique em conectar e permita o microfone</span></div>
+<button id="btn" onclick="go()">Conectar e falar</button>
+<button class="stop" id="stop" onclick="end()" style="display:none">Encerrar</button>
+<div class="log" id="log"></div>
+<script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.3/AgoraRTC_N-production.js"></script>
+<script>
+let client=null,mic=null,agentId=null;
+const $=id=>document.getElementById(id);
+function log(m){$("log").innerHTML+=m+"<br>";$("log").scrollTop=1e6}
+function st(t,s,on){$("stt").textContent=t;$("sts").textContent=s;
+$("dot").className="dot"+(on?" on":"")}
+async function go(){
+try{
+st("conectando","pedindo config do servidor...");$("btn").disabled=true;
+const cfg=(await (await fetch("/voice/config")).json()).data;
+log("canal: "+cfg.channel_name+" uid:"+cfg.uid);
+client=AgoraRTC.createClient({mode:"rtc",codec:"vp8"});
+client.on("user-published",async(u,mt)=>{
+await client.subscribe(u,mt);
+if(mt==="audio"){u.audioTrack.play();log("audio remoto tocando (agente)")}});
+await client.join(cfg.app_id,cfg.channel_name,cfg.token,parseInt(cfg.uid));
+st("no canal","entrando com microfone...");
+mic=await AgoraRTC.createMicrophoneAudioTrack();
+await client.publish([mic]);
+st("chamando agente","iniciando ConvoAI...");
+const r=await (await fetch("/voice/start",{method:"POST",
+headers:{"Content-Type":"application/json"},body:JSON.stringify({
+channelName:cfg.channel_name,rtcUid:parseInt(cfg.agent_uid),userUid:parseInt(cfg.uid)})})).json();
+if(r.code!==0)throw new Error(JSON.stringify(r));
+agentId=r.data.agent_id;
+log("agent_id: "+agentId);
+st("AO VIVO","fale agora — o auditor responde com dados reais do registry",true);
+$("btn").style.display="none";$("stop").style.display="inline-block";
+}catch(e){log("ERRO: "+(e.message||e));st("erro",e.message||String(e));
+$("btn").disabled=false;}}
+async function end(){
+if(agentId)try{await fetch("/voice/stop",{method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({agentId:agentId})})}catch(e){}
+if(mic){mic.close();mic=null}
+if(client){await client.leave();client=null}
+agentId=null;st("desconectado","sessao encerrada");
+$("stop").style.display="none";$("btn").style.display="inline-block";
+$("btn").disabled=false;}
+</script></div></body></html>"""
+
