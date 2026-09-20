@@ -1,6 +1,7 @@
 """SQLite persistence layer. WAL mode, foreign keys on, one connection per Database."""
 
 import sqlite3
+import threading
 import time
 from pathlib import Path
 
@@ -100,16 +101,39 @@ CREATE TABLE IF NOT EXISTS balances (
 """
 
 
+class _Rows:
+    """Result set materialized while the connection lock is held, so a second
+    thread can never advance or reset a statement this caller is still reading."""
+
+    def __init__(self, cur: sqlite3.Cursor):
+        self.lastrowid, self.rowcount = cur.lastrowid, cur.rowcount
+        self._rows = cur.fetchall() if cur.description else []
+
+    def fetchone(self):
+        return self._rows.pop(0) if self._rows else None
+
+    def fetchall(self):
+        rows, self._rows = self._rows, []
+        return rows
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
 class Database:
     def __init__(self, path: str | Path = ":memory:"):
+        # One connection is shared by every request thread (FastAPI threadpool,
+        # dashboard polling, mission workers): all access goes through this lock.
+        self._lock = threading.RLock()
         self.conn = sqlite3.connect(str(path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.executescript(SCHEMA)
 
-    def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        return self.conn.execute(sql, params)
+    def execute(self, sql: str, params: tuple = ()) -> _Rows:
+        with self._lock:
+            return _Rows(self.conn.execute(sql, params))
 
     def tx(self):
         return self.conn  # context manager: commits on exit, rolls back on exception

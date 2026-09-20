@@ -28,7 +28,9 @@ function bounded(promise, milliseconds, late = () => {}) {
 }
 
 export class VoiceSession {
-  constructor({ mediaDevices, sdk, fetcher = fetch, status = () => {}, timeout = 15000 }) {
+  // Native fetch throws "Illegal invocation" when called as a method of another
+  // object (this.fetcher(...)), so the default must be a plain wrapper.
+  constructor({ mediaDevices, sdk, fetcher = (...args) => fetch(...args), status = () => {}, timeout = 15000 }) {
     Object.assign(this, { mediaDevices, sdk, fetcher, status, timeout });
     this.current = null;
     this.busy = false;
