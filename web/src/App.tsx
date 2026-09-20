@@ -17,6 +17,7 @@ import { AuditTrailPanel } from '@/components/audit-trail'
 import { CostPanel } from '@/components/cost-panel'
 import { EscrowDetailSheet } from '@/components/escrow-detail'
 import { EscrowTable } from '@/components/escrow-table'
+import { MissionPanel } from '@/components/mission-panel'
 import { StatCards } from '@/components/stat-cards'
 import { TracePanel } from '@/components/trace-panel'
 import { Badge } from '@/components/ui/badge'
@@ -25,9 +26,10 @@ import { cn } from '@/lib/utils'
 
 const POLL_MS = 1500
 
-type View = 'overview' | 'escrows' | 'trace' | 'audit' | 'agents' | 'costs'
+type View = 'missions' | 'overview' | 'escrows' | 'trace' | 'audit' | 'agents' | 'costs'
 
 const NAV: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: 'missions', label: 'Missão autônoma', icon: ShieldCheck },
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'escrows', label: 'Escrows', icon: Landmark },
   { id: 'trace', label: 'Rastreio', icon: Network },
@@ -37,6 +39,7 @@ const NAV: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
 ]
 
 const VIEW_TITLE: Record<View, string> = {
+  missions: 'Missão autônoma · inteligência de ameaças',
   overview: 'Visão geral',
   escrows: 'Escrows',
   trace: 'Rastreio de proveniência',
@@ -46,7 +49,7 @@ const VIEW_TITLE: Record<View, string> = {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>('overview')
+  const [view, setView] = useState<View>('missions')
   const [selected, setSelected] = useState<string | null>(null)
 
   const metrics = useQuery({ queryKey: ['metrics'], queryFn: api.metrics, refetchInterval: POLL_MS })
@@ -99,7 +102,7 @@ export default function App() {
           <div>
             <div className="text-sm font-medium tracking-tight">EvidenceGate</div>
             <div className="text-[11px] font-light text-muted-foreground">
-              auditoria ao vivo
+              inteligência de ameaças
             </div>
           </div>
         </div>
@@ -171,6 +174,7 @@ export default function App() {
         </header>
 
         <main className="flex-1 space-y-4 px-5 py-5">
+          {view === 'missions' && <MissionPanel />}
           {view === 'overview' && (
             <>
               <StatCards metrics={metrics.data} escrows={escList} />

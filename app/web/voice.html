@@ -3,6 +3,7 @@
 <title>EvidenceGate — auditor de voz</title>
 <link rel="stylesheet" href="/static/eg.css">
 <style>
+[hidden]{display:none!important}
 .hero{position:relative;min-height:100vh;overflow:hidden;display:flex;
   flex-direction:column}
 .stage{position:relative;flex:1;display:flex;align-items:center;
@@ -46,64 +47,10 @@ h1{font-size:22px;font-weight:300;letter-spacing:-0.02em}
   <div class="status"><span class="dot" id="dot"></span><b id="stt">desconectado</b>
     <br><span id="sts">clique em conectar e permita o microfone</span></div>
   <div class="vbtns">
-    <button class="btn btn-primary" id="btn" onclick="go()">Conectar e falar</button>
-    <button class="btn stop" id="stop" onclick="end()" style="display:none">Encerrar</button>
+    <button class="btn btn-primary" id="btn">Conectar e falar</button>
+    <button class="btn stop" id="stop" hidden>Encerrar</button>
   </div>
-  <div class="log" id="log"></div>
+  <button class="btn" id="text-mode" style="margin-top:16px">Usar modo texto</button><section id="text-panel" hidden style="margin-top:24px;text-align:left"><form id="chat-form"><label for="question">Pergunte ao auditor</label><textarea id="question" rows="3" maxlength="2000" required style="width:100%;margin:12px 0;padding:12px" placeholder="Houve algum bloqueio na missão?"></textarea><button class="btn btn-primary" id="send">Enviar pergunta</button></form><p id="answer" aria-live="polite" style="white-space:pre-wrap;margin-top:16px"></p><p id="chat-error" role="alert"></p></section>
 </div></div></div>
-<script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.3/AgoraRTC_N-production.js"></script>
-<script>
-let client=null,mic=null,agentId=null;
-const $=id=>document.getElementById(id);
-function log(m){$("log").innerHTML+=m+"<br>";$("log").scrollTop=1e6}
-function st(t,s,on){$("stt").textContent=t;$("sts").textContent=s;
-$("dot").className="dot"+(on?" on":"")}
-let volTimer=null;
-const withTimeout=(p,ms,what)=>Promise.race([p,
-new Promise((_,rj)=>setTimeout(()=>rj(new Error(what+" — timeout "+ms/1000+"s")),ms))]);
-async function go(){
-try{
-st("conectando","pedindo config do servidor...");$("btn").disabled=true;
-const cfg=(await (await fetch("/voice/config")).json()).data;
-log("canal: "+cfg.channel_name+" uid:"+cfg.uid);
-client=AgoraRTC.createClient({mode:"rtc",codec:"vp8"});
-client.on("user-published",async(u,mt)=>{
-await client.subscribe(u,mt);
-if(mt==="audio"){try{u.audioTrack.play()}catch(_){}
-log("audio remoto tocando (agente)")}});
-log("entrando no canal...");
-await withTimeout(client.join(cfg.app_id,cfg.channel_name,cfg.token,
-parseInt(cfg.uid)),15000,
-"join falhou — a rede pode estar bloqueando WebRTC/UDP (VPN, firewall corporativo ou CGNAT). Tenta outra rede");
-log("no canal. pedindo microfone...");
-st("no canal","entrando com microfone...");
-try{mic=await withTimeout(AgoraRTC.createMicrophoneAudioTrack(),12000,"mic")}
-catch(e){throw new Error("microfone indisponivel: "+(e.message||e)+
-" — libera o mic no navegador (cadeado na barra) e fecha outros apps que usam mic")}
-log("mic ok. publicando...");
-await withTimeout(client.publish([mic]),12000,"publish travou");
-log("publicado. iniciando agente ConvoAI...");
-volTimer=setInterval(()=>{if(mic){const v=mic.getVolumeLevel();
-$("sts").textContent="mic: "+(v>0.02?"captando ("+v.toFixed(2)+")":"sem som — fala mais perto")}},800);
-st("chamando agente","iniciando ConvoAI...");
-const r=await (await fetch("/voice/start",{method:"POST",
-headers:{"Content-Type":"application/json"},body:JSON.stringify({
-channelName:cfg.channel_name,rtcUid:parseInt(cfg.agent_uid),userUid:parseInt(cfg.uid)})})).json();
-if(r.code!==0)throw new Error("startAgent: "+JSON.stringify(r));
-agentId=r.data.agent_id;
-log("agent_id: "+agentId);
-st("AO VIVO","fale agora — o auditor responde com dados reais do registry",true);
-$("btn").style.display="none";$("stop").style.display="inline-block";
-}catch(e){log("ERRO: "+(e.message||e));st("erro",e.message||String(e));
-$("btn").disabled=false;}}
-async function end(){
-if(agentId)try{await fetch("/voice/stop",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({agentId:agentId})})}catch(e){}
-if(volTimer){clearInterval(volTimer);volTimer=null}
-if(mic){mic.close();mic=null}
-if(client){await client.leave();client=null}
-agentId=null;st("desconectado","sessao encerrada");
-$("stop").style.display="none";$("btn").style.display="inline-block";
-$("btn").disabled=false;}
-</script></body></html>
+<script async src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.3/AgoraRTC_N-production.js"></script>
+<script type="module" src="/static/voice-ui.mjs"></script></body></html>

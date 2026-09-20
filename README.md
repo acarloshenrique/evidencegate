@@ -1,17 +1,18 @@
 # EvidenceGate
 
-**Quando agentes pagam agentes, quem confere o trabalho?**
+**A ameaça é bloqueada. A missão continua.**
 
-Camada de confiança para a economia de agentes: escrow cuja liquidação é
-condicionada a verificação independente, identidade criptográfica real e
-trilha de auditoria tamper-evident.
+Inteligência de ameaças e proteção de contratações entre agentes: identidade
+criptográfica, verificação de entregas e trilha de auditoria verificável.
 
-A2A permite que agentes conversem. x402/AP2 permitem que paguem. Nenhum
-dos dois responde se a entrega foi boa — e settlement é final, sem
-chargeback. O EvidenceGate é a peça que falta: o dinheiro só sai do
-escrow quando um painel de juízes confirma que a entrega cumpre a
-rubrica travada no contrato.
+A nova aba **Missão autônoma** encadeia coleta, triagem e relatório. Um fornecedor
+com AgentCard malicioso é bloqueado e substituído sem intervenção após o início.
+A demo é local e determinística, com dados sintéticos e ledger de sandbox; não
+implementa transporte A2A remoto nem movimenta dinheiro real.
 
+Veja [como executar e conferir os números](docs/MISSION-DEMO.md) e o
+[roteiro de pitch](PITCH.md). O núcleo de escrow e painel de juízes continua
+atendendo o fluxo de verificação subjetiva existente.
 ## Demo ao vivo (Oracle Cloud)
 
 | Superfície | URL |

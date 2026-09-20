@@ -9,6 +9,7 @@ Voice bridge: POST /chat/completions is OpenAI-compatible so the Agora
 ConvoAI BYOK recipe can point CUSTOM_LLM_URL straight at this service.
 """
 
+import asyncio
 import json
 import os
 import time
@@ -28,6 +29,7 @@ from .crypto import b58decode, b58encode
 from .db import Database
 from .escrow import EscrowEngine, EscrowError
 from .explain import explain_chain, explain_event
+from .missions import MissionConflict, MissionEngine, MissionRequest, mission_metrics
 from .policy import Policy, PolicyEngine
 from .registry import Registry, sanitize_untrusted
 from .report import compliance_report
@@ -66,6 +68,8 @@ def _autonomy(events: list[dict]) -> dict:
     decisions = human = stage_a_only = panels = 0
     for e in events:
         action = e["action"]
+        if action.startswith("mission."):
+            continue  # mission decisions have their own explicit, versioned measurement
         if action.startswith(_HUMAN_ACTIONS):
             human += 1
         elif action == "verify.panel":
@@ -73,9 +77,12 @@ def _autonomy(events: list[dict]) -> dict:
             decisions += len(e["payload"].get("judges", [])) + 1  # votes + verdict
         elif action not in _NON_DECISIONS:
             decisions += 1
-        if action == "escrow.rejected" and "stage_a" in (e["payload"].get("panel") or {}):
+        if action in ("escrow.rejected", "escrow.verified") and "stage_a" in (
+                e["payload"].get("panel") or {}):
             stage_a_only += 1
-    return {"autonomy": {"decisions": decisions, "human_interventions": human},
+    return {"autonomy": {"decisions": decisions, "human_interventions": human,
+                         "measurement": "legacy_audit_actions"},
+            "mission_autonomy": mission_metrics(events),
             "stage_a": {"resolved_free": stage_a_only,
                         "verifications": stage_a_only + panels}}
 
@@ -101,6 +108,7 @@ class Services:
                    human_threshold=float(os.getenv("EG_HUMAN_THRESHOLD", "100"))))
         self.escrow = EscrowEngine(self.db, self.audit, self.registry, self.policy)
         self._nl = nl
+        self.missions = MissionEngine(self)
 
     @property
     def nl(self):
@@ -132,9 +140,25 @@ def create_app(nl: Any = None) -> FastAPI:
         db_path = os.getenv("EG_DB_PATH", "data/evidencegate.db")
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         app.state.svc = Services(db_path, nl=nl)
-        yield
+        app.state.write_lock = asyncio.Lock()
+        try:
+            yield
+        finally:
+            app.state.svc.db.conn.close()
 
     app = FastAPI(title="EvidenceGate", version="0.1.0", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def serialize_mutations(request: Request, call_next):
+        # The demo's single SQLite connection must not interleave mutations.
+        # Read-only dashboard polling remains available while a mission runs.
+        writes = request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        writes = writes or (request.url.path.startswith("/agents/")
+                            and request.url.path.endswith("/card"))
+        if writes:
+            async with request.app.state.write_lock:
+                return await call_next(request)
+        return await call_next(request)
 
     # O dashboard React roda em http://localhost:5173 durante o desenvolvimento;
     # em produção ele é servido por este mesmo processo (mesma origem).
@@ -378,6 +402,27 @@ def create_app(nl: Any = None) -> FastAPI:
                 "chain": s.audit.verify_chain(),
                 **_autonomy(s.audit.events())}
 
+    @app.get("/missions")
+    def missions(s: Services = Depends(svc)):
+        return {"missions": s.missions.list(),
+                "demo_enabled": os.getenv("EG_ENABLE_MISSION_DEMO") == "1"}
+
+    @app.post("/missions/run")
+    def run_mission(body: MissionRequest, s: Services = Depends(svc)):
+        if os.getenv("EG_ENABLE_MISSION_DEMO") != "1":
+            raise HTTPException(403, "Demo desativada neste servidor.")
+        try:
+            return s.missions.run(body)
+        except MissionConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/missions/{mission_id}")
+    def get_mission(mission_id: str, s: Services = Depends(svc)):
+        try:
+            return s.missions.get(mission_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Missão não encontrada.") from exc
+
     @app.get("/", response_class=HTMLResponse)
     def landing():
         return _page("landing.html")
@@ -421,6 +466,7 @@ def create_app(nl: Any = None) -> FastAPI:
                                "agent.revoked", "policy.denied", "escrow.rejected",
                                "escrow.disputed", "escrow.arbitrated")][-8:]
         ctx = {
+            "missoes": s.missions.list()[:3],
             "escrows": [{"estado": r["state"], "valor": r["price"],
                          "vendedor": names.get(r["seller_did"], "")} for r in escrows],
             "agentes": [{"nome": names[a["did"]], "reputacao": a["reputation"],
@@ -434,7 +480,9 @@ def create_app(nl: Any = None) -> FastAPI:
             "transacoes entre agentes. Sua resposta sera FALADA: portugues, no "
             "maximo duas frases, sem listas. Nunca leia DIDs, hashes ou ids — "
             "chame os agentes pelo nome. Entrega rejeitada, disputa, injection "
-            "e policy negada CONTAM como fraude ou ataque barrado. Responda "
+            "e policy negada são sinais de risco; não provam fraude por si só. "
+            "mission_autonomy descreve uma demo local determinística com dados sintéticos, "
+            "não uma rede remota de agentes. Responda "
             "apenas com base no ESTADO REAL abaixo — nunca invente.\n\n"
             f"ESTADO ATUAL:\n{json.dumps(ctx, ensure_ascii=False)}")
         messages = [{"role": "system", "content": system}]
