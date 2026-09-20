@@ -36,6 +36,9 @@ export function TracePanel() {
 
   useEffect(() => {
     if (!graph || !ref.current) return
+    const NODE_SIZE: Record<string, number> = {
+      principal: 30, agent: 30, escrow: 36, quote: 22, judge: 24,
+    }
     const cy = cytoscape({
       container: ref.current,
       elements: [
@@ -44,20 +47,26 @@ export function TracePanel() {
           style: {
             'background-color': n.color,
             label: 'data(label)',
-            'font-size': 8,
-            color: '#8b98b8',
+            'font-size': 10,
+            'font-weight': 600,
+            color: '#dbe3f5',
             'text-valign': 'bottom',
-            'text-margin-y': 4,
-            width: n.type === 'escrow' ? 22 : n.type === 'agent' ? 18 : 13,
-            height: n.type === 'escrow' ? 22 : n.type === 'agent' ? 18 : 13,
-            'border-width': 1.5,
-            'border-color': 'rgba(255,255,255,.25)',
+            'text-margin-y': 6,
+            'text-outline-color': '#070a14',
+            'text-outline-width': 2.5,
+            width: NODE_SIZE[n.type] ?? 20,
+            height: NODE_SIZE[n.type] ?? 20,
+            'border-width': 3,
+            'border-color': n.color,
+            'border-opacity': 0.55,
+            'overlay-padding': 6,
           },
         })),
         ...graph.edges.map((e) => ({
-          data: { id: e.id, source: e.src, target: e.dst, label: e.label },
+          data: { id: e.id, source: e.src, target: e.dst,
+                  label: e.label, etype: e.type },
           style: {
-            width: e.type === 'LOGGED' ? 0.8 : 1.5,
+            width: e.type === 'LOGGED' ? 0.8 : 1.8,
             'line-color':
               e.type === 'VOTE'
                 ? voteColor(e.data?.vote as string | undefined)
@@ -67,14 +76,39 @@ export function TracePanel() {
               e.type === 'VOTE'
                 ? voteColor(e.data?.vote as string | undefined)
                 : (EDGE_COLORS[e.type] ?? '#8b98b8'),
-            'arrow-scale': 0.7,
-            'curve-style': 'bezier',
-            opacity: e.type === 'LOGGED' ? 0.35 : 0.85,
+            'arrow-scale': 0.8,
+            'curve-style': 'unbundled-bezier',
+            'control-point-distances': [24],
+            'control-point-weights': [0.5],
+            opacity: e.type === 'LOGGED' ? 0.3 : 0.9,
+            label: e.type === 'LOGGED' ? '' : 'data(label)',
+            'font-size': 8,
+            'font-weight': 600,
+            color: '#9fb0d0',
+            'text-rotation': 'autorotate',
+            'text-margin-y': -6,
+            'text-outline-color': '#070a14',
+            'text-outline-width': 2,
           },
         })),
       ],
-      layout: { name: 'cose', animate: false, nodeRepulsion: 9000, idealEdgeLength: 90 },
-      wheelSensitivity: 0.3,
+      layout: {
+        name: 'cose',
+        animate: false,
+        nodeRepulsion: 16000,
+        idealEdgeLength: 120,
+        gravity: 0.3,
+        padding: 40,
+      },
+      wheelSensitivity: 0.2,
+      minZoom: 0.3,
+      maxZoom: 3,
+    })
+    cy.on('mouseover', 'node', (evt) => {
+      evt.target.style('border-width', 6)
+    })
+    cy.on('mouseout', 'node', (evt) => {
+      evt.target.style('border-width', 3)
     })
     cy.on('tap', 'node', (evt) => {
       const id = evt.target.id()
@@ -104,7 +138,7 @@ export function TracePanel() {
         {error && <div className="text-xs text-rose-300">{error}</div>}
         <div
           ref={ref}
-          className="h-[440px] w-full rounded-lg border bg-[#0a0e1e]"
+          className="h-[560px] w-full rounded-lg border border-[#1c2640] bg-[#070a14] [background-image:radial-gradient(ellipse_at_50%_40%,rgba(83,58,253,.10),transparent_65%)]"
         />
         <div className="flex flex-wrap gap-2">
           {types.map((t) => (
