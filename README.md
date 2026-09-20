@@ -85,6 +85,7 @@ uv run uvicorn app.main:app --port 8000
 - `PITCH.md` — roteiro de 4 min mapeado nos critérios do júri
 - `STATUS.md` — feito / fazendo / falta (demo e produção)
 - `BOARD.md` — tarefas, donos e critérios de "pronto" (metodologia squad)
+- `docs/PLANO-NEGOCIO.md` — ICP, posicionamento, pricing, unit economics, GTM
 - `docs/` — PRD, dossiê antifraude, deep research A2A, metodologia,
   checklist de produção, auditor de produção, kit de pitch
 
