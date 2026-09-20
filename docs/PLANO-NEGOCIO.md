@@ -8,8 +8,18 @@
 ## 1. O que vendemos
 
 Não vendemos agente, não vendemos pagamento, não vendemos modelo de IA.
-Vendemos **a resposta para "quem confere o trabalho?"** — verificação e
-settlement condicionado a prova, como serviço.
+Vendemos **antifraude para a economia de agentes**: a resposta para "quando
+um agente paga outro, quem barra o golpe?" — triagem do agente, verificação
+da entrega e settlement condicionado a prova, como serviço.
+
+O antifraude de hoje olha para o **humano**: aparelho, IP, cartão,
+comportamento de navegação. Agente não tem nada disso. Na transação
+agente→agente o golpe muda de forma — AgentCard envenenado (prompt
+injection na descoberta), entregável lixo, reputação inflada por sybil,
+conluio. O escrow não é o produto: é o **sensor**. Como ficamos no caminho
+do dinheiro, cada transação gera sinal de fraude rotulado, que alimenta uma
+rede de ameaças compartilhada entre clientes — o "Stripe Radar da economia
+de agentes".
 
 Três produtos, um só motor:
 
@@ -104,7 +114,14 @@ verifica mais, e a conta é previsível. Take-rate como alternativa pra
 cliente de volume alto (quem prefere % do que assinatura).
 
 **Custo real medido:** $0.0047–$0.0118 por decisão (painel 3 juízes +
-orquestrador). COGS seguro: **~$0.02/decisão** com retry.
+orquestrador). Triagem de segurança por juiz LLM + análise dos especialistas
+numa missão inteira (7 inferências na NeuraLake): ~$0.002, medido no
+servidor da demo em 20/09/2026. COGS seguro: **~$0.02/decisão** com retry.
+
+**Âncora de preço de mercado:** o Stripe Radar for Fraud Teams cobra cerca
+de **$0.05 por transação analisada** (fontes secundárias citam $0.02–0.07
+conforme volume). Nosso $0.05–0.10 por verificação está na mesma régua que
+o mercado de antifraude já paga.
 
 ### Planos (3, padrão que funciona)
 
@@ -153,6 +170,23 @@ pra primeira instância do painel.
 ---
 
 ## 6. Tem gente pra comprar? (demanda)
+
+### Tamanho de mercado (dados de terceiros)
+
+| Mercado | Número | Fonte |
+|---|---|---|
+| Comércio orquestrado por agentes, global, 2030 | **US$ 3–5 trilhões** (US$ 1 tri só nos EUA) | McKinsey, out/2025 |
+| Fraud detection & prevention, global | **US$ 32 bi (2025) → US$ 65,7 bi (2030)**, CAGR 15,5% | MarketsandMarkets |
+
+Ressalva: a projeção da McKinsey é a mais alta entre as consultorias e as
+definições de "agentic commerce" variam; outras casas projetam o mercado de
+FDP entre US$ 85 bi e US$ 92 bi em 2030. Usar como ordem de grandeza.
+
+**Estimativa nossa (não é dado de mercado):** se 1% dos US$ 3 tri passar por
+verificação a uma taxa de 0,1% (10 bps), são ~US$ 30 milhões/ano de receita.
+Serve só para dar escala ao argumento; sempre apresentar como estimativa.
+
+### Por que agora
 
 Sim — e o timing é o argumento:
 
@@ -215,10 +249,27 @@ Padrão aberto é como a gente vira padrão.
 | "Quem garante o juiz de vocês?" | Painel cross-capability + trilha pública + BYO judge no Enterprise — o cliente pode botar o próprio modelo na bancada. |
 | Passivo legal se o veredicto errar | Posicionamento: entregamos evidência, não garantia absoluta; disputa vai pro arbitration desk. Seguro E&O quando houver receita. |
 | Juízes manipuláveis (Gaming the Judge) | Juiz avalia artefato, nunca o raciocínio do agente — CoT manipulado infla falso positivo em ~90%, por isso o design é o que é. |
+| "Já existe antifraude (Stripe Radar, Sift, Feedzai)" | Foram feitos para humano comprando: sinais de aparelho, IP, cartão e comportamento. Não enxergam AgentCard, delegação de escopo nem qualidade de entregável. É categoria adjacente, não substituta. |
 | Concorrente (OpenAI/Stripe) faz igual | Eles fazem o rail; trust layer agnóstica de rail é neutra e portátil. E nosso moat é o registry, não o verificador. |
 | Volume A2A demorar pra chegar | Camada funciona também para contratação humano→agente (mercado já existe hoje). |
 
 ---
+
+## 10. O que ainda não temos
+
+Zero cliente e zero receita — o projeto nasceu num hackathon de dois dias
+(19–20/09/2026). Não movemos dinheiro real: o escrow é ledger interno, e
+dinheiro de verdade entra por integração (x402/Stripe/Pix). A rede de
+ameaças compartilhada é tese de moat, não ativo existente: hoje os sinais
+ficam num único tenant.
+
+## Fontes
+
+- McKinsey, agentic commerce até 2030 — via Digital Commerce 360 (20/10/2025):
+  https://www.digitalcommerce360.com/2025/10/20/mckinsey-forecast-5-trillion-agentic-commerce-sales-2030/
+- MarketsandMarkets, Fraud Detection and Prevention Market 2025–2030:
+  https://www.marketsandmarkets.com/PressReleases/fraud-detection-prevention.asp
+- Stripe Radar (preço por transação analisada): https://stripe.com/radar
 
 *Próximos artefatos derivados deste plano: pricing page, one-pager de
 venda pra design partner, deck de 8 slides.*
