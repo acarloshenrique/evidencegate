@@ -171,3 +171,19 @@ Pronto quando: roteiro mapeado nos 6 critérios do júri com prova concreta de c
 | Custo por decisão cabe em produção | Viável | Sim | demo live: $0.009 / 7 chamadas |
 | **Furo em produção**: juiz cai (504) | — | Corrigido | retry + fail-closed: juiz indisponível = reject, nunca approve |
 | **Furo em produção**: reasoning gasta budget em `<think>` | — | Em correção (T007) | parser + max_tokens |
+
+
+## T015 — explicabilidade determinística (feito)
+
+- `app/explain.py`: por quê por template, derivado do payload — zero LLM, zero alucinação
+- `/explain`, `/explain/{seq}`; `why`/`summary` embutidos em `/audit`, `/escrow/{id}`, `/report` (coluna "por que")
+- audit rail do dashboard mostra a justificativa em cada evento
+
+## T016 — polish p/ banca (feito)
+
+- inference_calls persistido no SQLite → custo sobrevive a restart
+- `scripts/tamper_demo.py`: tamper test em cópia do DB, aponta seq exato
+- `demo.py --live` smoke test OK ($0.0118/7 chamadas, juiz caiu → fail-closed → 2-de-3 RELEASED)
+- vídeo v2 78s: narração neural pt-BR + legendas pill (/static/demo.mp4)
+- trace view estilo Neo4j Bloom: pipeline breadthfirst, halos, toggle de eventos
+- `docs/diagrams/`: arquitetura + fluxo de settlement em .drawio
