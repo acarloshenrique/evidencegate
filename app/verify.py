@@ -164,5 +164,8 @@ class JudgePanel:
                           {"escrow_id": escrow_id, "verdict": summary["verdict"],
                            "approvals": len(approvals),
                            "avg_confidence": summary["avg_confidence"],
-                           "judges": [v["judge"] for v in votes]})
+                           "judges": [v["judge"] for v in votes],
+                           "votes": [{k: v[k] for k in
+                                      ("judge", "vote", "confidence")}
+                                     for v in votes]})
         return summary

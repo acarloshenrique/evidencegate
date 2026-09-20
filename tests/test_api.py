@@ -122,6 +122,16 @@ def test_stage_a_reject_retains_escrow(client):
         "ruling": "buyer", "rationale": "entregavel abaixo da rubrica"})
     assert a.json()["state"] == "RESOLVED" and a.json()["ruling"] == "buyer"
 
+    m = client.get("/metrics").json()
+    assert m["stage_a"] == {"resolved_free": 1, "verifications": 1}
+    assert m["autonomy"]["human_interventions"] == 0
+    assert m["autonomy"]["decisions"] >= 6
+
+    # voice bridge builds its grounded context without blowing up
+    chat = client.post("/chat/completions", json={
+        "messages": [{"role": "user", "content": "teve fraude?"}]})
+    assert chat.status_code == 200
+
 
 def test_policy_denies_over_cap(client):
     _, buyer, seller = _setup(client)

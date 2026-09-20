@@ -83,6 +83,16 @@ CREATE TABLE IF NOT EXISTS judge_votes (
     PRIMARY KEY (escrow_id, judge)
 );
 
+CREATE TABLE IF NOT EXISTS inference_calls (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts              REAL NOT NULL,
+    model_requested TEXT NOT NULL,
+    model_used      TEXT NOT NULL,
+    prompt_tokens   INTEGER NOT NULL,
+    completion_tokens INTEGER NOT NULL,
+    cost            REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS balances (
     account TEXT PRIMARY KEY,
     amount  REAL NOT NULL DEFAULT 0

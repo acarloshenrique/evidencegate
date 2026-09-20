@@ -107,7 +107,20 @@ ID: T010
 Título: Dashboard ao vivo — ledger, trilha, custo por decisão
 Dono: Jazz + Devin  [feito]
 Depende de: T009
-FEITO: GET /dashboard (HTML single-file, polling 1.5s) + GET /escrows + GET /metrics (custo/chamadas/chain). Uvicorn :8800/dashboard
+FEITO (v2): merge do dashboard React do Kauan (t010-live-dashboard) —
+  app shell com sidebar (Visao geral/Escrows/Auditoria/Agentes/Custos),
+  tabela + detalhe do caso (rubrica, evidencia, votos, ledger, eventos),
+  timeline com tamper-seq, custo por chamada, reputacao. Tokens do design
+  system aplicados (indigo/navy/Inter). /dashboard/legacy = single-file.
+  API: /ledger, list_escrows com votos, agents com flag. seed_dashboard.py
+  populou 4 casos + 1 verify LIVE real (reasoning falhou -> fail-closed,
+  2-de-3 RELEASED, /bin/bash.003).
+FEITO (v2 React): web/ com React 19 + Vite + Tailwind 4 + shadcn/ui, polling 1.5s via react-query.
+  Painéis: stat cards (trilha íntegra, custo total, custo por decisão liquidada, valor travado),
+  tabela de escrows -> sheet do caso (rubrica travada + evidência + votos commit-reveal + ledger + eventos),
+  timeline da trilha hash-encadeada com marcação de adulteração, gráfico de custo por chamada de juiz, agentes+reputação.
+  Backend: CORS dev, GET /escrow/{id} agora devolve quote/votes/events, /dashboard serve web/dist (legado em /dashboard/legacy).
+  scripts/seed_dashboard.py popula casos de demo offline. pytest 13/13, ruff limpo, npm run build limpo.
 ```
 
 ```
@@ -121,9 +134,20 @@ Status: API pública NÃO expõe parâmetro de memória (frontend beta.neuraserv
 ```
 ID: T012
 Título: Voz Agora ConvoAI → NeuraLake (agora-recipe apontando CUSTOM_LLM_URL pro nosso backend)
-Dono: (livre)
+Dono: Jazz + Devin  [em curso]
 Depende de: T009
-Pronto quando: agente de voz responde status de um escrow por voz usando a NeuraLake como LLM
+Status: QUASE COMPLETO. Agent server systemd (porta 8010) + /chat/completions com SSE streaming + pagina /voice (RTC client) + HTTPS https://evidencegate.163-192-115-82.sslip.io. startAgent retornou agent_id real via REST. Falta so: teste humano com mic — abrir /voice, falar, ouvir auditor.
+```
+
+```
+ID: T014
+Titulo: Grafo de proveniencia / rastreio semantico (KYC->KYA->quote->escrow->votos->dinheiro->eventos)
+Dono: Devin  [completo]
+Depende de: T010
+Pronto quando: /trace/graph + /trace/{id} servindo nos publicos + view "Rastreio" no dashboard React (cytoscape)
+Status: COMPLETO. app/trace.py deriva nos tipados (principal, agente, quote, escrow, juiz) e arestas
+semanticas (KYC_BACKS, SIGNED_QUOTE, FUNDED, JUDGED_BY, VOTE, MONEY, LOGGED). Deploy live: 15 nos,
+54 arestas do seed+caso live. Neo4j fica como backend opcional atras do mesmo contrato de API.
 ```
 
 ```
@@ -147,3 +171,19 @@ Pronto quando: roteiro mapeado nos 6 critérios do júri com prova concreta de c
 | Custo por decisão cabe em produção | Viável | Sim | demo live: $0.009 / 7 chamadas |
 | **Furo em produção**: juiz cai (504) | — | Corrigido | retry + fail-closed: juiz indisponível = reject, nunca approve |
 | **Furo em produção**: reasoning gasta budget em `<think>` | — | Em correção (T007) | parser + max_tokens |
+
+
+## T015 — explicabilidade determinística (feito)
+
+- `app/explain.py`: por quê por template, derivado do payload — zero LLM, zero alucinação
+- `/explain`, `/explain/{seq}`; `why`/`summary` embutidos em `/audit`, `/escrow/{id}`, `/report` (coluna "por que")
+- audit rail do dashboard mostra a justificativa em cada evento
+
+## T016 — polish p/ banca (feito)
+
+- inference_calls persistido no SQLite → custo sobrevive a restart
+- `scripts/tamper_demo.py`: tamper test em cópia do DB, aponta seq exato
+- `demo.py --live` smoke test OK ($0.0118/7 chamadas, juiz caiu → fail-closed → 2-de-3 RELEASED)
+- vídeo v2 78s: narração neural pt-BR + legendas pill (/static/demo.mp4)
+- trace view estilo Neo4j Bloom: pipeline breadthfirst, halos, toggle de eventos
+- `docs/diagrams/`: arquitetura + fluxo de settlement em .drawio

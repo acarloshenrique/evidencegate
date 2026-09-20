@@ -61,6 +61,12 @@ class AuditTrail:
         return {"ok": True, "length": prev != GENESIS and self.db.execute(
             "SELECT COUNT(*) c FROM events").fetchone()["c"] or 0}
 
+    def events(self) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM events ORDER BY seq").fetchall()
+        return [dict(r) | {"payload": json.loads(r["payload"])}
+                for r in rows]
+
     def for_escrow(self, escrow_id: str) -> list[dict]:
         rows = self.db.execute(
             "SELECT * FROM events WHERE payload LIKE ? ORDER BY seq",
