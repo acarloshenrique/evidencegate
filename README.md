@@ -1,43 +1,101 @@
-# EvidenceGate - ambiente local
+# EvidenceGate
 
-Base de desenvolvimento para o MVP proposto no relatório do hackathon. Esta preparação inclui apenas infraestrutura e verificação do ambiente; agentes, política de aceite e razão de créditos ainda serão implementados.
+**A ameaça é bloqueada. A missão continua.**
 
-## Iniciar
+Inteligência de ameaças e proteção de contratações entre agentes: identidade
+criptográfica, verificação de entregas e trilha de auditoria verificável.
 
-Abra PowerShell nesta pasta e execute, sem precisar ativar o virtualenv:
+A nova aba **Missão autônoma** encadeia coleta, triagem e relatório. Um fornecedor
+com AgentCard malicioso é bloqueado e substituído sem intervenção após o início.
+A demo é local e determinística, com dados sintéticos e ledger de sandbox; não
+implementa transporte A2A remoto nem movimenta dinheiro real.
 
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+Veja [como executar e conferir os números](docs/MISSION-DEMO.md) e o
+[roteiro de pitch](PITCH.md). O núcleo de escrow e painel de juízes continua
+atendendo o fluxo de verificação subjetiva existente.
+## Demo ao vivo (Oracle Cloud)
+
+| Superfície | URL |
+|---|---|
+| Landing | https://evidencegate.163-192-115-82.sslip.io/ |
+| Dashboard (escrows, trilha, custo/decisão) | https://evidencegate.163-192-115-82.sslip.io/dashboard |
+| Auditor de voz (Agora ConvoAI) | https://evidencegate.163-192-115-82.sslip.io/voice |
+| API docs | https://evidencegate.163-192-115-82.sslip.io/docs |
+
+## Arquitetura
+
+```
+KYC principal ──► KYA agent (Ed25519, did:key, AgentCard assinado)
+        │
+        ▼
+descoberta + policy (caps, allowlist, sanitização anti-injection)
+        │
+        ▼
+quote com rubrica imutável (hash assinado pelo seller)
+        │
+        ▼
+escrow  QUOTED → FUNDED → DELIVERED → VERIFIED → RELEASED
+                            │             │
+                            └── REJECTED → DISPUTED → ARBITRATED → RESOLVED
+        │
+        ▼
+verificação em 2 estágios
+  A: checks determinísticos (schema, hash, conteúdo, testes) — grátis
+  B: painel 2-de-3 cross-model (commit-reveal) — fail-closed
+        │
+        ▼
+trilha de auditoria hash-chained — verify_chain() re-deriva e
+aponta o seq exato de qualquer adulteração
 ```
 
-- Saúde: http://127.0.0.1:8000/health
-- Documentação interativa: http://127.0.0.1:8000/docs
-- Parar: Ctrl+C.
+Decisões de design que importam:
 
-## Dependências e reprodução
+- **Juiz nunca vê chain-of-thought do agente** — mata o ataque de
+  "convencer o juiz" (Gaming the Judge: CoT manipulado infla FP ~90%).
+- **Policy em código, não em prompt** — assinatura prova autorização;
+  intenção é enforceada fora do LLM (confused deputy).
+- **Fail-closed** — juiz indisponível/malformado vira `reject` com
+  confiança 0; maioria 2-de-3 decide mesmo com um juiz caído.
+- **Reputação só muda após settlement** — sem inflação por promessa.
+- **Custo de verificação ∝ risco** — determinístico primeiro; LLM só
+  no que passa; humano no que fica abaixo do threshold.
 
-Python 3.12; dependências declaradas em `pyproject.toml` e versões exatas em `uv.lock`. O ambiente `.venv` é exclusivo deste projeto. Usamos instalação por cópia para evitar dependência de hardlinks no OneDrive.
+## Endpoints principais
 
-```powershell
-$env:UV_CACHE_DIR = Join-Path (Get-Location) '.uv-cache'
-uv sync --locked --link-mode copy
-.\.venv\Scripts\python.exe scripts\verify_environment.py
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\ruff.exe check .
+`POST /principals` `POST /agents` `POST /agents/verify-card`
+`POST /quotes` `POST /escrows` `POST /escrows/{id}/fund`
+`POST /escrows/{id}/deliver` `POST /escrows/{id}/verify`
+`POST /escrows/{id}/dispute` `POST /escrows/{id}/arbitrate`
+`GET /escrows` `GET /audit/events` `GET /audit/verify`
+`GET /report/compliance` `GET /metrics` `GET /dashboard` `GET /voice`
+`POST /chat/completions` (OpenAI-compatible, SSE — ponte Agora ConvoAI)
+
+## Rodando local
+
+```bash
+uv sync --locked
+uv run pytest -q            # 13 testes, sem custo de LLM
+uv run ruff check .
+uv run python scripts/demo.py          # juízes mockados
+uv run python scripts/demo.py --live   # juízes reais NeuraLake (~$0.01)
+uv run uvicorn app.main:app --port 8000
 ```
 
-Os scripts `scripts/setup.ps1` e `scripts/start.ps1` oferecem os mesmos atalhos quando a política local permite scripts. Não é necessário mudar a política de execução do Windows: os comandos diretos acima funcionam sem ativação.
+## Documentos
 
-Bibliotecas: FastAPI/Uvicorn (API); Pydantic/Settings (validação e configuração); OpenAI/HTTPX (cliente compatível com NeuraLake); pypdf/ReportLab (documentos); Jinja2/python-multipart (interface e uploads); structlog/tenacity (logs e retries); pytest/pytest-asyncio/Ruff (verificação). SQLite vem com o Python. A interface mínima pode ser servida pelo próprio backend; npm e navegador automatizado não são necessários para esta base.
+- `PITCH.md` — roteiro de 4 min mapeado nos critérios do júri
+- `STATUS.md` — feito / fazendo / falta (demo e produção)
+- `BOARD.md` — tarefas, donos e critérios de "pronto" (metodologia squad)
+- `docs/PLANO-NEGOCIO.md` — ICP, posicionamento, pricing, unit economics, GTM
+- `docs/` — PRD, dossiê antifraude, deep research A2A, metodologia,
+  checklist de produção, auditor de produção, kit de pitch
 
-## NeuraLake
+## Dashboard React
 
-Copie `.env.example` para `.env` e preencha a chave localmente quando for integrar o produto. A base atual não carrega nem usa essa chave. Não envie segredos por chat ou commit. O smoke check usa um transporte HTTP simulado e não consome créditos; disponibilidade da API, credencial, roteamento e Cross Memory ainda precisam de teste real.
-
-Docker não é necessário para executar este ambiente local. A imagem de implantação será definida junto com a implementação do MVP.
-
-## Referências
-
-- [Ambientes isolados com uv](https://docs.astral.sh/uv/pip/environments/)
-- [Lock e sincronização com uv](https://docs.astral.sh/uv/reference/cli/)
-- [FastAPI](https://fastapi.tiangolo.com/)
+O console de auditoria (`/dashboard`) vive em `web/` (React 19 + Vite +
+Tailwind 4 + shadcn/ui): tabela de escrows, detalhe do caso (rubrica,
+evidencia, votos commit-reveal, ledger, eventos), timeline da trilha com
+marcacao de tamper, custo por chamada e reputacao dos agentes. Build em
+`web/dist` servido pela mesma origem; sem build, `/dashboard` cai no
+console single-file. `scripts/seed_dashboard.py` popula casos de demo
+sem gastar credito.

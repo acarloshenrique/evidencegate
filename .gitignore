@@ -13,3 +13,8 @@ pytest-cache-files-*/
 *.db-shm
 data/
 logs/
+data-preview.*.log
+compliance_report.md
+node_modules/
+.npm-cache/
+web/dist/

@@ -1,50 +1,84 @@
-# PITCH — EvidenceGate (4 min, mapeado nos critérios)
+# PITCH — EvidenceGate: a ameaça é bloqueada, a missão continua
 
-Critérios do júri: Autonomia A2A 30% · Funciona de verdade 25% · Eficiência 15% · Valor de negócio 15% · Pitch 10% · Confiança 5%
+Roteiro de quatro minutos. Tela principal: `/dashboard`, aba **Missão autônoma**.
+Execute o cenário com injection uma vez. Números desta implementação: **11 decisões,
+3 handoffs concluídos, 1 substituição, 0 intervenções após o início**.
+São métricas de uma missão local determinística; não de agentes LLM distribuídos.
 
-Tela durante todo o pitch: **dashboard ao vivo** (`/dashboard`) mostrando escrows, trilha hash-chained e custo de inferência acumulado.
+## 0:00–0:30 — A dor
 
----
+> “Quando um agente contrata outro, uma identidade válida não garante uma entrega
+> confiável. Um fornecedor pode tentar redirecionar a missão ou contornar a política.
+> EvidenceGate conecta detecção de ameaças à execução: bloqueia o fornecedor suspeito
+> e permite que o fluxo continue com evidências verificáveis.”
 
-## (0:00–0:30) A pergunta que abre — hook + problema
+## 0:30–1:30 — A missão
 
-> "Ano que vem, agentes de IA vão contratar e pagar outros agentes sem humano no loop. Já existe protocolo pra eles se acharem — A2A. Já existe pra se pagarem — x402, AP2. Mas responde essa: **quando um agente paga outro agente, quem confere se o trabalho presta?** Ninguém. Settlement é final, sem chargeback. É exatamente esse o buraco que a gente tapa."
+Selecione **Ataque durante a triagem** e clique em **Executar missão**.
 
-Frase-âncora (repetir no fecho): **"Fé pública programável pra economia de agentes."**
+> “Defini um orçamento de 30 créditos de sandbox. O coordenador encadeia três
+> especialistas: coleta, triagem e relatório. Cada entrega vira entrada da próxima,
+> com contrato, identidade e hash. Daqui em diante, não escolho fornecedores,
+> aprovo entregas ou intervenho nas decisões.”
 
-## (0:30–1:30) Fluxo feliz AO VIVO (funciona de verdade 25% + autonomia 30%)
+Mostre as três entregas concluídas. Identifique a execução como local e os sinais
+como sintéticos. Não há espera artificial para produzir efeito de tempo real.
 
-Rodar `demo.py --live` (ou replay gravado como backup). Narrar em cima do dashboard:
+## 1:30–2:30 — O ataque e a recuperação
 
-> "Um CEO-agent com orçamento contrata sozinho: **descobre** candidatos no registry — reparem, o de reputação inflada tá marcado INJECTION FLAGGED, o AgentCard dele tinha prompt injection escondido e foi barrado antes da avaliação. Ele **escolhe**, fecha **quote com rubrica travada** — critérios de aceite viram hash, ninguém move a trave depois. Escrow **funded**. Vendedor **entrega** — o artefato passa pelo stage A, checagem determinística grátis. Aí o **painel de juízes**: três modelos diferentes da NeuraLake votando em segredo — commit-reveal — maioria 2-de-3. Aprovaram. **Escrow released**, reputação do vendedor sobe. Zero humano depois do orçamento."
+Aponte os eventos **block** e **replace** na etapa **triage**.
 
-Apontar pro contador de custo: **"Tudo isso por um centavo de inferência."**
+> “O candidato mais barato contém uma instrução para ignorar a política. A checagem
+> bloqueia esse cartão antes da contratação. O coordenador escolhe um fornecedor
+> elegível e prossegue. O candidato bloqueado não recebe contrato nem pagamento.
+> A missão termina com três entregas verificadas e 20 créditos comprometidos.”
 
-## (1:30–2:40) O ATAQUE (o teatro + a substância)
+Mostre os indicadores: 11 decisões explícitas, três handoffs concluídos, uma
+substituição e zero intervenções depois do início. Abra o JSON da missão se
+pedirem prova: recibo anterior, hash de entrada, hash do artefato e escrow.
 
-> "Agora o que interessa pro banco. Segunda transação: o entregável é lixo. Stage A já barra de graça — e mesmo assim os três juízes rejeitam. Escrow **retido**. Buyer abre **disputa** — o tribunal arbitra, ruling pro buyer, **reembolso automático**, reputação do vendedor despenca. E olha a trilha: cada evento é encadeado por hash — eu adultero um caractere de um evento antigo…" *(tamper test ao vivo)* "…`verify_chain` aponta exatamente onde. Isso é compliance report que auditor lê, não log que operador finge."
+## 2:30–3:15 — Eficiência e fundamento técnico
 
-Frase de impacto: **"O juiz julga o artefato, nunca o raciocínio do agente — porque CoT manipulado infla falso positivo em 90%."**
+> “Essas tarefas têm critérios objetivos. Por isso, a verificação não precisa
+> chamar um modelo: a rubrica fica travada antes da entrega. Para tarefas subjetivas,
+> o núcleo existente tem painel de juízes. A confiança é o mecanismo que permite
+> continuar a operação, com identidade e trilha criptográfica verificáveis.”
 
-## (2:40–3:20) Por que isso é empresa, não feature (valor de negócio 15%)
+Não diga “custo total zero”: zero chamadas de inferência nessa missão não elimina
+custos de infraestrutura. Não confunda eventos de log com decisões autônomas.
 
-> "ERC-8004 já separou identity / reputation / validation em três registries — a gente implementou os três localmente, pluggable pra on-chain depois. A pergunta 'esse agente tinha autorização, naquele escopo?' é o que banco, seguradora e compliance vão exigir antes de deixar agente mover dinheiro. A gente é a camada que responde isso com prova criptográfica — não com log."
+## 3:15–4:00 — Produto e fechamento
 
-## (3:20–4:00) NeuraLake + fecho (eficiência 15% + pitch 10%)
+> “Nossa hipótese de cliente é a empresa que opera agentes contratando serviços
+> externos. O valor é reduzir contratações indevidas e o trabalho de investigar cada
+> incidente, sem colocar uma pessoa em toda transação. O piloto deve medir perdas
+> evitadas, falsos positivos, tempo de recuperação e custo por missão concluída.”
 
-> "Tudo roda na NeuraLake: o orquestrador usa `auto` — o router escolhe a capability mais barata por request. Os juízes são `reasoning-pro` e `code` — cross-model de verdade. E o auditor compartilha **case state** entre juízes em vez de reenviar histórico — é a lógica do Cross Memory aplicada ao domínio: menos token, mais contexto. Quando agentes pagam agentes, quem confere o trabalho? **EvidenceGate. Fé pública programável.**"
+> “EvidenceGate: a ameaça é bloqueada, a missão continua.”
 
----
+## Respostas curtas para o júri
 
-## Perguntas prováveis do júri (resposta de 1 frase cada)
+- **Isso é A2A remoto?** Não nesta entrega: são executores locais especializados,
+  com identidades e handoffs rastreados. Transporte remoto e conformidade com o
+  protocolo A2A são o próximo passo; não estão sendo simulados nos números.
+- **São onze raciocínios de LLM?** Não. São onze escolhas explícitas do workflow,
+  regidas por política. O contador não mede raciocínio interno.
+- **O ataque é real?** É uma entrada maliciosa controlada em um cenário sintético.
+  A checagem, o bloqueio e o fluxo alternativo são executados pelo código.
+- **Qualquer injection é detectada?** Não. O filtro atual usa padrões e tem limites.
+- **A verba foi transferida?** Apenas lançamentos no ledger de sandbox.
+- **E se a entrega for inválida?** O escrow fica retido e as etapas seguintes não
+  executam; os testes cobrem esse caminho.
+- **E se o processo cair?** A chave não repete efeitos. A missão interrompida exige
+  inspeção; recuperação automática por checkpoints ainda não está implementada.
+- **Por que não cem decisões?** Porque preferimos mostrar os onze pontos de decisão
+  desta missão e seus recibos. Repetir uma demo aumenta volume, não profundidade.
 
-- **"E se o juiz errar/cair?"** → Fail-closed: juiz que não verifica nunca aprova; 2-de-3 tolera 1 caído — nosso live run provou isso na prática (um juiz 504'd e o painel decidiu mesmo assim).
-- **"Juiz LLM decidindo dinheiro não é frágil?"** → Por isso two-stage: determinístico decide o objetivável; juiz só vê o subjetivo, com rubrica travada antes do trabalho.
-- **"E sybil / reputação inflada?"** → Reputação só muda com outcome settled — review não verificado não move score; identidade é Ed25519 atada a principal KYC.
-- **"Por que não on-chain?"** → A camada de verificação é o problema; settlement pluga em x402/AP2/Base depois — registry já é compatível com ERC-8004.
-- **"Cross Memory?"** → Estado do caso compartilhado entre juízes sem reenviar histórico — medimos custo/decisão ao vivo no dashboard.
+## Plano de palco
 
-## Regras de palco
-
-- Demo live primeiro; se a NeuraLake cair, roda `demo.py` offline (fake determinístico) e mostra a trilha — nunca travar a apresentação esperando rede.
-- Se apertar tempo: corta a seção 2.40, NUNCA corta o ataque nem o tamper test.
+1. Banco de sandbox, um worker, demo habilitada e build atualizado.
+2. Teste a missão antes da apresentação; deixe a aba e os quatro indicadores prontos.
+3. Use voz só depois de ensaiar com microfone, Agora e NeuraLake reais. Sem microfone,
+   use texto; sem inferência configurada, apresente o relatório e os recibos da missão.
+4. Se perguntarem sobre os pesos do júri, confira o regulamento oficial antes de
+   citar percentuais. Este roteiro prioriza autonomia observável e execução verificável.

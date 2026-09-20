@@ -9,6 +9,7 @@ Voice bridge: POST /chat/completions is OpenAI-compatible so the Agora
 ConvoAI BYOK recipe can point CUSTOM_LLM_URL straight at this service.
 """
 
+import asyncio
 import json
 import os
 import time
@@ -17,15 +18,20 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from .audit import AuditTrail
 from .crypto import b58decode, b58encode
 from .db import Database
 from .escrow import EscrowEngine, EscrowError
+from .explain import explain_chain, explain_event
+from .missions import MissionConflict, MissionEngine, MissionRequest, mission_metrics
 from .policy import Policy, PolicyEngine
-from .registry import Registry
+from .registry import Registry, sanitize_untrusted
 from .report import compliance_report
 from .schemas import (
     AgentIn,
@@ -45,7 +51,40 @@ from .schemas import (
     VerifyIn,
     VerifyOut,
 )
+from .trace import build_graph, trace_entity
 from .verify import JudgePanel, stage_a
+
+_AGORA_AGENT_URL = os.getenv("AGORA_AGENT_URL", "http://localhost:8010")
+
+# Audit actions taken by agents/system with no human in the loop. KYC onboarding
+# (principal.registered) is the only human step and is not a decision.
+_HUMAN_ACTIONS = ("human.",)
+_NON_DECISIONS = ("principal.registered", "agent.registered")
+
+
+def _autonomy(events: list[dict]) -> dict:
+    """Derived from the audit trail, never stored: autonomous decisions vs human
+    interventions, and how many verifications stage A settled with zero tokens."""
+    decisions = human = stage_a_only = panels = 0
+    for e in events:
+        action = e["action"]
+        if action.startswith("mission."):
+            continue  # mission decisions have their own explicit, versioned measurement
+        if action.startswith(_HUMAN_ACTIONS):
+            human += 1
+        elif action == "verify.panel":
+            panels += 1
+            decisions += len(e["payload"].get("judges", [])) + 1  # votes + verdict
+        elif action not in _NON_DECISIONS:
+            decisions += 1
+        if action in ("escrow.rejected", "escrow.verified") and "stage_a" in (
+                e["payload"].get("panel") or {}):
+            stage_a_only += 1
+    return {"autonomy": {"decisions": decisions, "human_interventions": human,
+                         "measurement": "legacy_audit_actions"},
+            "mission_autonomy": mission_metrics(events),
+            "stage_a": {"resolved_free": stage_a_only,
+                        "verifications": stage_a_only + panels}}
 
 
 class Services:
@@ -69,6 +108,7 @@ class Services:
                    human_threshold=float(os.getenv("EG_HUMAN_THRESHOLD", "100"))))
         self.escrow = EscrowEngine(self.db, self.audit, self.registry, self.policy)
         self._nl = nl
+        self.missions = MissionEngine(self)
 
     @property
     def nl(self):
@@ -76,7 +116,7 @@ class Services:
             from .neuralake import NeuraLake
             if not os.getenv("NEURALAKE_API_KEY"):
                 raise HTTPException(503, "NeuraLake credentials not configured")
-            self._nl = NeuraLake()
+            self._nl = NeuraLake(db=self.db)
         return self._nl
 
     def seller_sk(self, did: str) -> bytes:
@@ -87,18 +127,52 @@ class Services:
         return b58decode(row["sk_b58"])
 
 
+_WEB = Path(__file__).resolve().parent / "web"
+
+
+def _page(name: str) -> HTMLResponse:
+    return HTMLResponse((_WEB / name).read_text(encoding="utf-8"))
+
+
 def create_app(nl: Any = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db_path = os.getenv("EG_DB_PATH", "data/evidencegate.db")
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         app.state.svc = Services(db_path, nl=nl)
-        yield
+        app.state.write_lock = asyncio.Lock()
+        try:
+            yield
+        finally:
+            app.state.svc.db.conn.close()
 
     app = FastAPI(title="EvidenceGate", version="0.1.0", lifespan=lifespan)
 
+    @app.middleware("http")
+    async def serialize_mutations(request: Request, call_next):
+        # The demo's single SQLite connection must not interleave mutations.
+        # Read-only dashboard polling remains available while a mission runs.
+        writes = request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        writes = writes or (request.url.path.startswith("/agents/")
+                            and request.url.path.endswith("/card"))
+        if writes:
+            async with request.app.state.write_lock:
+                return await call_next(request)
+        return await call_next(request)
+
+    # O dashboard React roda em http://localhost:5173 durante o desenvolvimento;
+    # em produção ele é servido por este mesmo processo (mesma origem).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     def svc(request: Request) -> Services:
         return request.app.state.svc
+
+    app.mount("/static", StaticFiles(directory=_WEB), name="static")
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -123,7 +197,22 @@ def create_app(nl: Any = None) -> FastAPI:
 
     @app.get("/agents")
     def list_agents(capability: str | None = None, s: Services = Depends(svc)):
-        return {"agents": s.registry.list_agents(capability)}
+        agents = s.registry.list_agents(capability)
+        for a in agents:
+            card = a.get("card") or {}
+            flagged = False
+            for v in card.values():
+                if isinstance(v, str):
+                    _, f = sanitize_untrusted(v)
+                    flagged = flagged or f
+                elif isinstance(v, list):
+                    for item in v:
+                        if isinstance(item, dict):
+                            _, f = sanitize_untrusted(
+                                str(item.get("description", "")))
+                            flagged = flagged or f
+            a["injection_flagged"] = flagged
+        return {"agents": agents}
 
     @app.get("/agents/{did}/card")
     def get_card(did: str, s: Services = Depends(svc)):
@@ -205,24 +294,41 @@ def create_app(nl: Any = None) -> FastAPI:
 
     @app.get("/escrow/{escrow_id}")
     def get_escrow(escrow_id: str, s: Services = Depends(svc)):
+        """Visão completa de um caso: escrow + quote (rubrica travada) + razão +
+        votos do painel + trilha. É o que o auditor precisa ver numa tela só."""
         row = s.db.execute("SELECT * FROM escrows WHERE id=?",
                            (escrow_id,)).fetchone()
         if not row:
             raise HTTPException(404, "unknown escrow")
+        escrow = dict(row)
+        if escrow.get("evidence"):
+            escrow["evidence"] = json.loads(escrow["evidence"])
+        quote = s.db.execute("SELECT * FROM quotes WHERE id=?",
+                             (row["quote_id"],)).fetchone()
+        quote = dict(quote) if quote else None
+        if quote:
+            quote["criteria"] = json.loads(quote["criteria"])
         ledger = [dict(r) for r in s.db.execute(
-            "SELECT account,delta,reason,ts FROM ledger WHERE escrow_id=?",
+            "SELECT account,delta,reason,ts FROM ledger WHERE escrow_id=? ORDER BY id",
             (escrow_id,))]
-        return {"escrow": dict(row), "ledger": ledger}
+        votes = [dict(r) for r in s.db.execute(
+            "SELECT judge,commit_hash,vote,confidence,rationale,revealed "
+            "FROM judge_votes WHERE escrow_id=?", (escrow_id,))]
+        return {"escrow": escrow, "quote": quote, "ledger": ledger,
+                "votes": votes,
+                "events": explain_chain(s.audit.for_escrow(escrow_id))}
 
     # --- audit / report -----------------------------------------------------
     @app.get("/audit")
     def audit_events(escrow_id: str | None = None, s: Services = Depends(svc)):
         if escrow_id:
-            return {"events": s.audit.for_escrow(escrow_id)}
+            return {"events": explain_chain(s.audit.for_escrow(escrow_id))}
         rows = s.db.execute(
-            "SELECT seq,ts,actor_did,action,payload_hash,prev_hash,event_hash "
-            "FROM events ORDER BY seq").fetchall()
-        return {"events": [dict(r) for r in rows]}
+            "SELECT seq,ts,actor_did,action,payload,payload_hash,prev_hash,"
+            "event_hash FROM events ORDER BY seq").fetchall()
+        events = [dict(r) | {"payload": json.loads(r["payload"])}
+                  for r in rows]
+        return {"events": explain_chain(events)}
 
     @app.get("/audit/verify")
     def audit_verify(s: Services = Depends(svc)):
@@ -232,6 +338,18 @@ def create_app(nl: Any = None) -> FastAPI:
     def report(escrow_id: str, s: Services = Depends(svc)):
         return compliance_report(s.audit, escrow_id)
 
+    @app.get("/explain")
+    def explain(s: Services = Depends(svc)):
+        """Every event explained from its own data — deterministic, no LLM."""
+        return {"events": explain_chain(s.audit.events())}
+
+    @app.get("/explain/{seq}")
+    def explain_one(seq: int, s: Services = Depends(svc)):
+        ev = next((e for e in s.audit.events() if e["seq"] == seq), None)
+        if not ev:
+            return {"error": "not found"}
+        return {**ev, **explain_event(ev)}
+
     @app.get("/escrows")
     def list_escrows(s: Services = Depends(svc)):
         rows = s.db.execute(
@@ -240,17 +358,83 @@ def create_app(nl: Any = None) -> FastAPI:
             "ORDER BY e.created_at DESC").fetchall()
         return {"escrows": [dict(r) for r in rows]}
 
+    @app.get("/trace/graph")
+    def trace_graph(s: Services = Depends(svc)):
+        """Grafo de proveniencia: KYC -> KYA -> quote -> escrow -> votos ->
+        dinheiro -> eventos. Arestas tipadas = camada semantica da trilha."""
+        return build_graph(s.db)
+
+    @app.get("/trace/{entity_id}")
+    def trace_one(entity_id: str, s: Services = Depends(svc)):
+        out = trace_entity(s.db, entity_id)
+        if not out["found"]:
+            raise HTTPException(404, "entidade desconhecida")
+        return out
+
+    @app.get("/ledger")
+    def ledger_events(s: Services = Depends(svc)):
+        rows = s.db.execute(
+            "SELECT account,delta,reason,escrow_id,ts FROM ledger "
+            "ORDER BY ts DESC LIMIT 100").fetchall()
+        return {"ledger": [dict(r) for r in rows]}
+
     @app.get("/metrics")
     def metrics(s: Services = Depends(svc)):
+        # persisted calls are the source of truth — survives restarts;
+        # in-memory list is the fallback for clients without a db (tests).
+        agg = s.db.execute(
+            "SELECT COUNT(*) c, COALESCE(SUM(cost),0.0) t "
+            "FROM inference_calls").fetchone()
+        if agg["c"]:
+            calls = [dict(r) for r in s.db.execute(
+                "SELECT model_requested,model_used,prompt_tokens,"
+                "completion_tokens,cost FROM inference_calls "
+                "ORDER BY id DESC LIMIT 20").fetchall()]
+            return {"inference_cost": agg["t"],
+                    "inference_calls": agg["c"],
+                    "calls": calls,
+                    "chain": s.audit.verify_chain(),
+                    **_autonomy(s.audit.events())}
         calls = getattr(s._nl, "calls", [])
         return {"inference_cost": getattr(s._nl, "total_cost", 0.0),
                 "inference_calls": len(calls),
                 "calls": calls[-20:],
-                "chain": s.audit.verify_chain()}
+                "chain": s.audit.verify_chain(),
+                **_autonomy(s.audit.events())}
 
-    @app.get("/dashboard", response_class=HTMLResponse)
-    def dashboard():
-        return _DASHBOARD_HTML
+    @app.get("/missions")
+    def missions(s: Services = Depends(svc)):
+        return {"missions": s.missions.list(),
+                "demo_enabled": os.getenv("EG_ENABLE_MISSION_DEMO") == "1"}
+
+    @app.post("/missions/run")
+    def run_mission(body: MissionRequest, s: Services = Depends(svc)):
+        if os.getenv("EG_ENABLE_MISSION_DEMO") != "1":
+            raise HTTPException(403, "Demo desativada neste servidor.")
+        try:
+            return s.missions.run(body)
+        except MissionConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/missions/{mission_id}")
+    def get_mission(mission_id: str, s: Services = Depends(svc)):
+        try:
+            return s.missions.get(mission_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Missão não encontrada.") from exc
+
+    @app.get("/", response_class=HTMLResponse)
+    def landing():
+        return _page("landing.html")
+
+    @app.get("/design", response_class=HTMLResponse)
+    def design():
+        return _page("design.html")
+
+    @app.get("/dashboard/legacy", response_class=HTMLResponse)
+    def dashboard_legacy():
+        """Console single-file — fallback quando nao ha build React."""
+        return _page("dashboard.html")
 
     # --- voice bridge (Agora ConvoAI BYOK -> CUSTOM_LLM_URL) -----------------
     @app.post("/chat/completions")
@@ -258,16 +442,47 @@ def create_app(nl: Any = None) -> FastAPI:
         """OpenAI-compatible endpoint: the voice agent answers auditor questions
         grounded in live registry/escrow state, never on hallucination."""
         escrows = s.db.execute(
-            "SELECT id,state FROM escrows ORDER BY updated_at DESC LIMIT 10").fetchall()
+            "SELECT e.id,e.state,q.price,q.seller_did FROM escrows e "
+            "JOIN quotes q ON e.quote_id=q.id "
+            "ORDER BY e.updated_at DESC LIMIT 10").fetchall()
         agents = s.registry.list_agents()
+        # spoken names: a TTS reading a did:key aloud is unusable. A flagged
+        # card is attacker-controlled text — it never reaches this prompt.
+        names = {}
+        for a in agents:
+            a["injection_flagged"] = sanitize_untrusted(
+                json.dumps(a.get("card") or {}, ensure_ascii=False))[1]
+            names[a["did"]] = (
+                "agente barrado por injection" if a["injection_flagged"]
+                else (a.get("card") or {}).get("description") or "agente sem nome")
+        events = s.audit.events()
+        threats = [
+            {"evento": e["action"],
+             "agente": names.get(e["payload"].get("did", ""), ""),
+             "detalhe": (e["payload"].get("panel") or {}).get("stage_a", {}).get("failures")
+             or e["payload"].get("reason") or e["payload"].get("ruling") or ""}
+            for e in events
+            if e["action"] in ("agent.injection_flagged", "agent.card_invalid",
+                               "agent.revoked", "policy.denied", "escrow.rejected",
+                               "escrow.disputed", "escrow.arbitrated")][-8:]
         ctx = {
-            "escrows": [{"id": r["id"], "state": r["state"]} for r in escrows],
-            "agents": [{"did": a["did"], "reputation": a["reputation"],
-                        "capabilities": a["capabilities"]} for a in agents],
+            "missoes": s.missions.list()[:3],
+            "escrows": [{"estado": r["state"], "valor": r["price"],
+                         "vendedor": names.get(r["seller_did"], "")} for r in escrows],
+            "agentes": [{"nome": names[a["did"]], "reputacao": a["reputation"],
+                         "injection_flagged": a["injection_flagged"]} for a in agents],
+            "ameacas_e_bloqueios": threats,
+            "trilha": s.audit.verify_chain(),
+            **_autonomy(events),
         }
         system = (
-            "Voce e o auditor de voz do EvidenceGate, camada de confianca "
-            "para transacoes entre agentes. Responda em portugues, curto, "
+            "Voce e o auditor de voz do EvidenceGate, camada antifraude para "
+            "transacoes entre agentes. Sua resposta sera FALADA: portugues, no "
+            "maximo duas frases, sem listas. Nunca leia DIDs, hashes ou ids — "
+            "chame os agentes pelo nome. Entrega rejeitada, disputa, injection "
+            "e policy negada são sinais de risco; não provam fraude por si só. "
+            "mission_autonomy descreve uma demo local determinística com dados sintéticos, "
+            "não uma rede remota de agentes. Responda "
             "apenas com base no ESTADO REAL abaixo — nunca invente.\n\n"
             f"ESTADO ATUAL:\n{json.dumps(ctx, ensure_ascii=False)}")
         messages = [{"role": "system", "content": system}]
@@ -282,10 +497,29 @@ def create_app(nl: Any = None) -> FastAPI:
                 messages.append({"role": role, "content": str(content)})
         r = s.nl.complete(messages, model=body.get("model", "auto"),
                           max_tokens=int(body.get("max_tokens", 512)))
+        cid = "chatcmpl-" + uuid.uuid4().hex[:24]
+        created = int(time.time())
+        if body.get("stream"):
+            # Agora CustomLLM requires SSE; upstream is non-streaming so we
+            # emit the full completion as chunked deltas.
+            def sse():
+                chunk = {"id": cid, "object": "chat.completion.chunk",
+                         "created": created, "model": r["model_used"],
+                         "choices": [{"index": 0, "finish_reason": None,
+                                      "delta": {"role": "assistant",
+                                                "content": r["content"]}}]}
+                end = {"id": cid, "object": "chat.completion.chunk",
+                       "created": created, "model": r["model_used"],
+                       "choices": [{"index": 0, "finish_reason": "stop",
+                                    "delta": {}}]}
+                yield f"data: {json.dumps(chunk)}\n\n"
+                yield f"data: {json.dumps(end)}\n\n"
+                yield "data: [DONE]\n\n"
+            return StreamingResponse(sse(), media_type="text/event-stream")
         return {
-            "id": "chatcmpl-" + uuid.uuid4().hex[:24],
+            "id": cid,
             "object": "chat.completion",
-            "created": int(time.time()),
+            "created": created,
             "model": r["model_used"],
             "choices": [{"index": 0, "finish_reason": "stop",
                          "message": {"role": "assistant",
@@ -295,56 +529,55 @@ def create_app(nl: Any = None) -> FastAPI:
                       "total_tokens": r["prompt_tokens"] + r["completion_tokens"]},
         }
 
+    # --- voice demo (Agora RTC client + agent control proxy) -----------------
+    @app.get("/voice", response_class=HTMLResponse)
+    def voice_page():
+        return _page("voice.html")
+
+    @app.get("/voice/config")
+    def voice_config(channel: str = "", uid: int = 0):
+        params = {}
+        if channel:
+            params["channel"] = channel
+        if uid:
+            params["uid"] = uid
+        try:
+            r = httpx.get(f"{_AGORA_AGENT_URL}/get_config",
+                          params=params, timeout=10)
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"agent server: {e}") from e
+
+    @app.post("/voice/start")
+    def voice_start(body: dict[str, Any]):
+        try:
+            r = httpx.post(f"{_AGORA_AGENT_URL}/startAgent",
+                           json=body, timeout=15)
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"agent server: {e}") from e
+
+    @app.post("/voice/stop")
+    def voice_stop(body: dict[str, Any]):
+        try:
+            r = httpx.post(f"{_AGORA_AGENT_URL}/stopAgent",
+                           json=body, timeout=15)
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"agent server: {e}") from e
+
+    # Dashboard React (web/): buildado em web/dist, servido na mesma origem da API.
+    # Sem build presente, /dashboard cai no console single-file.
+    if _WEB_DIST.is_dir():
+        app.mount("/dashboard",
+                  StaticFiles(directory=_WEB_DIST, html=True), name="dashboard")
+    else:
+        app.get("/dashboard", response_class=HTMLResponse)(dashboard_legacy)
+
     return app
 
 
+_WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+
 app = create_app()
-
-
-_DASHBOARD_HTML = """<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><title>EvidenceGate — auditor</title>
-<style>
-body{font-family:ui-monospace,Menlo,monospace;background:#0b0e14;color:#d7e0ea;margin:0;padding:24px}
-h1{font-size:18px;color:#7ee787}h2{font-size:13px;color:#8b949e;text-transform:uppercase;
-letter-spacing:.1em;border-bottom:1px solid #21262d;padding-bottom:4px;margin-top:28px}
-.card{background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin:8px 0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 32px}
-.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}
-.RELEASED,.RESOLVED,.VERIFIED{background:#12381f;color:#7ee787}
-.REJECTED,.DISPUTED{background:#3d1d1d;color:#ff7b72}
-.FUNDED,.DELIVERED,.QUOTED,.ARBITRATED{background:#1c2a44;color:#79c0ff}
-.ev{color:#8b949e;font-size:12px}.ev b{color:#d7e0ea}
-#cost{color:#f0b429;font-size:24px;font-weight:700}
-.mono{font-size:11px;color:#6e7681}
-</style></head><body>
-<h1>EvidenceGate — trilha de auditoria ao vivo</h1>
-<div>custo de inferência: <span id="cost">$0</span> ·
-chamadas: <span id="ncalls">0</span> ·
-trilha: <b id="chain">?</b> · <span class="mono" id="clock"></span></div>
-<div class="grid"><div>
-<h2>Escrows</h2><div id="escrows"></div>
-</div><div>
-<h2>Audit trail (hash-chained)</h2><div id="trail"></div>
-</div></div>
-<script>
-async function j(u){return (await fetch(u)).json()}
-function badge(st){return `<span class="badge ${st}">${st}</span>`}
-async function tick(){
-  const [m,e,a] = await Promise.all([j('/metrics'),j('/escrows'),j('/audit')]);
-  document.getElementById('cost').textContent = '$'+m.inference_cost.toFixed(6);
-  document.getElementById('ncalls').textContent = m.inference_calls;
-  const c = document.getElementById('chain');
-  c.textContent = m.chain.ok ? 'ÍNTEGRA' : 'ADULTERADA @seq '+m.chain.tampered_seq;
-  c.style.color = m.chain.ok ? '#7ee787' : '#ff7b72';
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-  document.getElementById('escrows').innerHTML = e.escrows.map(x=>`
-    <div class="card">${badge(x.state)} <b>${x.id}</b> · $${x.price} · ${x.scope}
-    <div class="mono">${x.seller_did.slice(0,32)}…</div></div>`).join('')
-    || '<div class="ev">nenhum escrow ainda</div>';
-  document.getElementById('trail').innerHTML = a.events.slice(-14).reverse().map(x=>`
-    <div class="ev"><b>#${x.seq}</b> ${x.action} <span class="mono">
-    ${x.actor_did.slice(0,28)}… ${x.event_hash.slice(0,10)}</span></div>`).join('')
-    || '<div class="ev">trilha vazia</div>';
-}
-setInterval(tick,1500);tick();
-</script></body></html>"""

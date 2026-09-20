@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EvidenceGate — console ao vivo</title>
+<link rel="stylesheet" href="/static/eg.css">
+<style>
+body{background:var(--d-bg);color:var(--d-text);min-height:100vh}
+/* ambient glow behind the shell — dark track depth */
+.glow{position:fixed;inset:0;pointer-events:none;z-index:0}
+.glow i{position:absolute;border-radius:50%;filter:blur(110px)}
+.glow i:nth-child(1){width:44vw;height:44vw;left:-10vw;top:-16vw;
+  background:radial-gradient(circle,rgba(83,58,253,.22),transparent 70%)}
+.glow i:nth-child(2){width:36vw;height:36vw;right:-8vw;top:-10vw;
+  background:radial-gradient(circle,rgba(234,34,97,.12),transparent 70%)}
+.glow i:nth-child(3){width:40vw;height:30vw;left:30vw;bottom:-20vw;
+  background:radial-gradient(circle,rgba(56,189,248,.08),transparent 70%)}
+.shell{position:relative;z-index:1}
+h1{font-size:26px;font-weight:300;letter-spacing:-0.02em}
+header.top{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:16px;padding:28px 0 8px}
+.top .sub{color:var(--d-mute);font-size:14px;font-weight:300;margin-top:4px}
+.live{display:flex;align-items:center;gap:8px;font-size:13px;
+  color:var(--d-mute);font-feature-settings:"tnum"}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok-dim);
+  box-shadow:0 0 10px var(--ok-dim)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;margin:24px 0 8px}
+.kpi{border-radius:var(--r-lg);padding:20px 22px}
+.kpi .lbl{font-size:11px;font-weight:400;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--d-mute)}
+.kpi .val{font-size:28px;font-weight:300;letter-spacing:-0.02em;
+  font-feature-settings:"tnum";margin-top:8px}
+.kpi .subl{font-size:12px;font-weight:300;color:var(--d-mute);margin-top:4px}
+.ok{color:var(--ok-dim)}.warn{color:var(--warn-dim)}
+.bad{color:var(--bad-dim)}.live-c{color:var(--live)}
+.cols{display:grid;grid-template-columns:1.45fr 1fr;gap:20px;
+  padding:24px 0 64px}
+@media(max-width:960px){.cols{grid-template-columns:1fr}}
+.panel{border-radius:var(--r-lg);padding:22px 24px}
+.panel h2{font-size:12px;font-weight:400;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--d-mute);margin-bottom:18px;
+  display:flex;justify-content:space-between;align-items:center}
+.panel h2 .h-note{letter-spacing:.04em;text-transform:none}
+.esc{border-radius:var(--r-md);padding:16px 18px;margin-bottom:14px;
+  background:rgba(255,255,255,.03);border:1px solid var(--d-hairline)}
+.esc.attack{border-color:rgba(248,113,113,.3);background:rgba(217,45,92,.05)}
+.esc-top{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:8px}
+.esc-id{font-size:12px;color:var(--live);font-feature-settings:"tnum"}
+.esc-price{font-size:16px;font-weight:450;color:var(--warn-dim);
+  font-feature-settings:"tnum"}
+.esc-scope{font-size:13.5px;font-weight:300;color:var(--d-text);
+  margin-bottom:12px;opacity:.85}
+.esc-seller{font-size:12px;color:var(--d-mute);font-feature-settings:"tnum";
+  margin-top:8px}
+.pipe{display:flex;align-items:center;margin:4px 0}
+.step{flex:1;text-align:center;position:relative}
+.step .pt{width:10px;height:10px;border-radius:50%;margin:0 auto;
+  background:rgba(255,255,255,.12)}
+.step .lb{font-size:11px;color:var(--d-mute);margin-top:5px;
+  text-transform:uppercase;letter-spacing:.06em}
+.step.done .pt{background:var(--ok-dim)}
+.step.done .lb{color:var(--ok-dim)}
+.step.cur .pt{background:var(--live);box-shadow:0 0 10px var(--live);
+  animation:curstep 2.4s ease-in-out infinite}
+@keyframes curstep{50%{box-shadow:0 0 3px var(--live)}}
+.step.cur .lb{color:var(--live)}
+.step.bad .pt{background:var(--bad-dim)}
+.step.bad .lb{color:var(--bad-dim)}
+.step::before{content:"";position:absolute;top:4px;left:-50%;width:100%;
+  height:1.5px;background:rgba(255,255,255,.1);z-index:-1}
+.step:first-child::before{display:none}
+.step.done::before{background:var(--ok-dim)}
+.ev{font-size:12px;font-weight:300;color:var(--d-mute);
+  padding:7px 0;border-bottom:1px solid var(--d-hairline);
+  display:flex;gap:12px;font-feature-settings:"tnum"}
+.ev:last-child{border:0}
+.ev .seq{color:var(--live);min-width:36px}
+.ev .act{color:var(--d-text);min-width:150px}
+.ev .meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flag{color:var(--bad-dim);font-weight:450}
+.empty{color:var(--d-mute);font-size:13px;font-weight:300;
+  padding:24px;text-align:center}
+.navdark .links a{color:var(--d-mute)}
+.navdark .links a:hover{color:var(--d-text)}
+</style></head><body>
+<div class="glow"><i></i><i></i><i></i></div>
+<div class="shell wrap">
+<nav class="navdark" style="display:flex;justify-content:space-between;
+align-items:center;padding:20px 0">
+  <a class="wordmark" href="/" style="color:var(--d-text)">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#665efd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5v5.2c0 5-3.4 9.3-8 10.8-4.6-1.5-8-5.8-8-10.8V5.5L12 2z"/><path d="M8.5 12l2.4 2.4 4.6-4.8"/></svg>
+    EvidenceGate</a>
+  <div class="links" style="display:flex;gap:24px">
+    <a href="/">Home</a><a href="/design">Design</a>
+    <a href="/dashboard" aria-current="page" style="color:var(--d-text);font-weight:450">Dashboard</a>
+    <a href="/voice">Voz</a><a href="/docs">API</a>
+  </div>
+</nav>
+<header class="top">
+  <div>
+    <h1 class="d-md">Console ao vivo</h1>
+    <div class="sub">fé pública programável para a economia de agentes</div>
+  </div>
+  <div class="live"><span class="dot"></span> AO VIVO · <span id="clock"></span></div>
+</header>
+<div class="kpis">
+  <div class="kpi glass-dark"><div class="lbl">Custo de inferência</div>
+    <div class="val warn" id="cost">$0</div>
+    <div class="subl">NeuraLake, por decisão</div></div>
+  <div class="kpi glass-dark"><div class="lbl">Chamadas LLM</div>
+    <div class="val live-c" id="ncalls">0</div>
+    <div class="subl">juízes + orquestrador</div></div>
+  <div class="kpi glass-dark"><div class="lbl">Trilha de auditoria</div>
+    <div class="val" id="chain">—</div>
+    <div class="subl" id="chain_sub">hash chain</div></div>
+  <div class="kpi glass-dark"><div class="lbl">Escrows</div>
+    <div class="val" id="nesc">0</div>
+    <div class="subl">verificação = condição de settle</div></div>
+</div>
+<div class="cols">
+  <div class="panel glass-dark"><h2>Escrows
+    <span class="h-note">state machine</span></h2><div id="escrows"></div></div>
+  <div>
+    <div class="panel glass-dark" style="margin-bottom:20px">
+      <h2>Registry</h2><div id="agents"></div></div>
+    <div class="panel glass-dark"><h2>Audit trail
+      <span class="h-note">append-only · hash-chained</span></h2>
+      <div id="trail"></div></div>
+  </div>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+async function j(u){try{return (await fetch(u)).json()}catch(e){return{}}}
+const HAPPY=["QUOTED","FUNDED","DELIVERED","VERIFIED","RELEASED"];
+const BAD=["REJECTED","DISPUTED","ARBITRATED","RESOLVED"];
+function pipe(state){
+  let steps=HAPPY.slice(),cur=HAPPY.indexOf(state);
+  if(BAD.includes(state)){steps=["QUOTED","FUNDED","DELIVERED",state];cur=3;}
+  return `<div class="pipe">`+steps.map((s,i)=>{
+    const cls=i<cur?"done":(i===cur?(BAD.includes(s)?"bad":"cur"):"");
+    return `<div class="step ${cls}"><div class="pt"></div><div class="lb">${s}</div></div>`;
+  }).join("")+`</div>`;
+}
+async function tick(){
+  const [m,e,a,g]=await Promise.all(
+    [j("/metrics"),j("/escrows"),j("/audit"),j("/agents")]);
+  $("clock").textContent=new Date().toLocaleTimeString("pt-BR");
+  $("cost").textContent="$"+(m.inference_cost||0).toFixed(6);
+  $("ncalls").textContent=m.inference_calls||0;
+  const ok=m.chain&&m.chain.ok;
+  $("chain").textContent=ok?"ÍNTEGRA":"ADULTERADA";
+  $("chain").className="val "+(ok?"ok":"bad");
+  $("chain_sub").textContent=ok?"hash chain verificada":
+    "tamper detectado @seq "+(m.chain?m.chain.tampered_seq:"?");
+  $("nesc").textContent=(e.escrows||[]).length;
+  $("escrows").innerHTML=(e.escrows||[]).map(x=>`
+    <div class="esc"><div class="esc-top">
+      <span class="esc-id">${x.id}</span><span class="esc-price">$${x.price}</span></div>
+      <div class="esc-scope">${x.scope||""}</div>${pipe(x.state)}
+      <div class="esc-seller">seller ${x.seller_did.slice(0,30)}…</div>
+    </div>`).join("")||`<div class="empty">aguardando primeira transação…</div>`;
+  $("agents").innerHTML=(g.agents||[]).map(x=>`
+    <div class="ev"><span class="act">${x.did.slice(0,24)}…</span>
+    <span class="meta">rep ${x.reputation.toFixed(1)} · ${(x.capabilities||[]).join(",")}</span>
+    </div>`).join("")||`<div class="empty">registry vazio</div>`;
+  $("trail").innerHTML=(a.events||[]).slice(-16).reverse().map(x=>{
+    const bad=/denied|invalid|flagged|disputed|rejected/i.test(x.action);
+    return `<div class="ev"><span class="seq">#${x.seq}</span>
+      <span class="act ${bad?"flag":""}">${x.action}</span>
+      <span class="meta">${x.actor_did.slice(0,24)}… ⛓ ${x.event_hash.slice(0,10)}</span></div>`;
+  }).join("")||`<div class="empty">trilha vazia</div>`;
+}
+setInterval(tick,1500);tick();
+</script></body></html>

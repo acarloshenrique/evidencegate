@@ -32,7 +32,9 @@ class FakeNL:
     def complete(self, messages, model="auto", **kw):
         self.calls.append({"model": model})
         if model == "auto":
-            return {"content": f'{"did":"{FakeNL.chosen}","rationale":"melhor reputacao x preco"}',
+            content = (f'{{"did":"{FakeNL.chosen}","rationale":"'
+                       f'melhor reputacao x preco"}}')
+            return {"content": content,
                     "model_used": "text", "cost": 0.0,
                     "prompt_tokens": 0, "completion_tokens": 0}
         good = getattr(FakeNL, "good_evidence", True)
