@@ -72,7 +72,7 @@ export function StatCards({
             <span className="font-mono text-5xl font-semibold tabular-nums text-emerald-400">
               {autonomy?.decisions ?? '…'}
             </span>
-            <span className="ml-3 text-sm text-muted-foreground">decisões autônomas</span>
+            <span className="ml-3 text-sm text-muted-foreground">ações automáticas na trilha (legado)</span>
           </div>
           <div>
             <span className="font-mono text-5xl font-semibold tabular-nums">

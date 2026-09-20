@@ -1,9 +1,8 @@
 /**
  * Cliente do backend EvidenceGate (app/main.py).
  *
- * O painel é só leitura: ele observa o que a camada de confiança gravou —
- * ledger, trilha hash-encadeada e custo de inferência por decisão. Nada aqui
- * muda estado; auditor não opera o escrow, audita.
+ * Consultas de auditoria e comando explícito para iniciar missões de sandbox.
+ * O backend executa e registra as decisões; a interface exibe a evidência.
  */
 
 export type ChainStatus =
@@ -25,6 +24,29 @@ export interface Metrics {
   chain: ChainStatus
   autonomy?: { decisions: number; human_interventions: number }
   stage_a?: { resolved_free: number; verifications: number }
+  mission_autonomy?: MissionMetrics
+}
+
+export interface MissionMetrics {
+  decisions: number
+  handoffs_completed: number
+  threats_blocked: number
+  automatic_replacements: number
+  missions_completed: number
+  missions_failed: number
+  human_interventions: number
+}
+
+export interface Mission {
+  id: string
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED'
+  budget: number
+  spent: number
+  scenario: 'injection' | 'clean'
+  error?: string
+  result?: { threat_count: number; indicators: string[]; source_ids: string[] }
+  metrics: MissionMetrics
+  events: AuditEvent[]
 }
 
 export const ESCROW_STATES = [
@@ -161,6 +183,14 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export const api = {
+  missions: () => get<{ missions: Mission[]; demo_enabled: boolean }>('/missions'),
+  mission: (id: string) => get<Mission>(`/missions/${encodeURIComponent(id)}`),
+  runMission: async (body: { idempotency_key: string; budget: number; scenario: string }) => {
+    const response = await fetch('/missions/run', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (!response.ok) throw new Error((await response.json()).detail ?? 'Falha ao executar missão')
+    return response.json() as Promise<Mission>
+  },
   metrics: () => get<Metrics>('/metrics'),
   escrows: () => get<{ escrows: EscrowRow[] }>('/escrows'),
   audit: () => get<{ events: AuditEvent[] }>('/audit'),
