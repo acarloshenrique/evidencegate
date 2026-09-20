@@ -58,9 +58,39 @@ export function StatCards({
     .reduce((sum, e) => sum + e.price, 0)
   // Custo por decisão liquidada: o número que decide se isso roda em produção.
   const perDecision = settled.length ? cost / settled.length : 0
+  const autonomy = metrics?.autonomy
+  const stageA = metrics?.stage_a
+  const freePct = stageA?.verifications
+    ? Math.round((stageA.resolved_free / stageA.verifications) * 100)
+    : 0
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <Card className="gap-0 py-5 sm:col-span-2 xl:col-span-5">
+        <CardContent className="flex flex-wrap items-baseline gap-x-10 gap-y-3 px-5">
+          <div>
+            <span className="font-mono text-5xl font-semibold tabular-nums text-emerald-400">
+              {autonomy?.decisions ?? '…'}
+            </span>
+            <span className="ml-3 text-sm text-muted-foreground">decisões autônomas</span>
+          </div>
+          <div>
+            <span className="font-mono text-5xl font-semibold tabular-nums">
+              {autonomy?.human_interventions ?? '…'}
+            </span>
+            <span className="ml-3 text-sm text-muted-foreground">intervenções humanas</span>
+          </div>
+          <div>
+            <span className="font-mono text-5xl font-semibold tabular-nums text-amber-400">
+              {stageA ? `${freePct}%` : '…'}
+            </span>
+            <span className="ml-3 text-sm text-muted-foreground">
+              das verificações resolvidas sem gastar token
+              {stageA ? ` (${stageA.resolved_free} de ${stageA.verifications})` : ''}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
       <Stat
         icon={chain?.ok === false ? <ShieldX className="size-3.5" /> : <ShieldCheck className="size-3.5" />}
         label="Trilha"

@@ -54,6 +54,31 @@ from .verify import JudgePanel, stage_a
 
 _AGORA_AGENT_URL = os.getenv("AGORA_AGENT_URL", "http://localhost:8010")
 
+# Audit actions taken by agents/system with no human in the loop. KYC onboarding
+# (principal.registered) is the only human step and is not a decision.
+_HUMAN_ACTIONS = ("human.",)
+_NON_DECISIONS = ("principal.registered", "agent.registered")
+
+
+def _autonomy(events: list[dict]) -> dict:
+    """Derived from the audit trail, never stored: autonomous decisions vs human
+    interventions, and how many verifications stage A settled with zero tokens."""
+    decisions = human = stage_a_only = panels = 0
+    for e in events:
+        action = e["action"]
+        if action.startswith(_HUMAN_ACTIONS):
+            human += 1
+        elif action == "verify.panel":
+            panels += 1
+            decisions += len(e["payload"].get("judges", [])) + 1  # votes + verdict
+        elif action not in _NON_DECISIONS:
+            decisions += 1
+        if action == "escrow.rejected" and "stage_a" in (e["payload"].get("panel") or {}):
+            stage_a_only += 1
+    return {"autonomy": {"decisions": decisions, "human_interventions": human},
+            "stage_a": {"resolved_free": stage_a_only,
+                        "verifications": stage_a_only + panels}}
+
 
 class Services:
     """Bundle of core services + custodial agent keys (hackathon-grade custody:
@@ -344,12 +369,14 @@ def create_app(nl: Any = None) -> FastAPI:
             return {"inference_cost": agg["t"],
                     "inference_calls": agg["c"],
                     "calls": calls,
-                    "chain": s.audit.verify_chain()}
+                    "chain": s.audit.verify_chain(),
+                    **_autonomy(s.audit.events())}
         calls = getattr(s._nl, "calls", [])
         return {"inference_cost": getattr(s._nl, "total_cost", 0.0),
                 "inference_calls": len(calls),
                 "calls": calls[-20:],
-                "chain": s.audit.verify_chain()}
+                "chain": s.audit.verify_chain(),
+                **_autonomy(s.audit.events())}
 
     @app.get("/", response_class=HTMLResponse)
     def landing():
@@ -370,16 +397,44 @@ def create_app(nl: Any = None) -> FastAPI:
         """OpenAI-compatible endpoint: the voice agent answers auditor questions
         grounded in live registry/escrow state, never on hallucination."""
         escrows = s.db.execute(
-            "SELECT id,state FROM escrows ORDER BY updated_at DESC LIMIT 10").fetchall()
+            "SELECT e.id,e.state,q.price,q.seller_did FROM escrows e "
+            "JOIN quotes q ON e.quote_id=q.id "
+            "ORDER BY e.updated_at DESC LIMIT 10").fetchall()
         agents = s.registry.list_agents()
+        # spoken names: a TTS reading a did:key aloud is unusable. A flagged
+        # card is attacker-controlled text — it never reaches this prompt.
+        names = {}
+        for a in agents:
+            a["injection_flagged"] = sanitize_untrusted(
+                json.dumps(a.get("card") or {}, ensure_ascii=False))[1]
+            names[a["did"]] = (
+                "agente barrado por injection" if a["injection_flagged"]
+                else (a.get("card") or {}).get("description") or "agente sem nome")
+        events = s.audit.events()
+        threats = [
+            {"evento": e["action"],
+             "agente": names.get(e["payload"].get("did", ""), ""),
+             "detalhe": (e["payload"].get("panel") or {}).get("stage_a", {}).get("failures")
+             or e["payload"].get("reason") or e["payload"].get("ruling") or ""}
+            for e in events
+            if e["action"] in ("agent.injection_flagged", "agent.card_invalid",
+                               "agent.revoked", "policy.denied", "escrow.rejected",
+                               "escrow.disputed", "escrow.arbitrated")][-8:]
         ctx = {
-            "escrows": [{"id": r["id"], "state": r["state"]} for r in escrows],
-            "agents": [{"did": a["did"], "reputation": a["reputation"],
-                        "capabilities": a["capabilities"]} for a in agents],
+            "escrows": [{"estado": r["state"], "valor": r["price"],
+                         "vendedor": names.get(r["seller_did"], "")} for r in escrows],
+            "agentes": [{"nome": names[a["did"]], "reputacao": a["reputation"],
+                         "injection_flagged": a["injection_flagged"]} for a in agents],
+            "ameacas_e_bloqueios": threats,
+            "trilha": s.audit.verify_chain(),
+            **_autonomy(events),
         }
         system = (
-            "Voce e o auditor de voz do EvidenceGate, camada de confianca "
-            "para transacoes entre agentes. Responda em portugues, curto, "
+            "Voce e o auditor de voz do EvidenceGate, camada antifraude para "
+            "transacoes entre agentes. Sua resposta sera FALADA: portugues, no "
+            "maximo duas frases, sem listas. Nunca leia DIDs, hashes ou ids — "
+            "chame os agentes pelo nome. Entrega rejeitada, disputa, injection "
+            "e policy negada CONTAM como fraude ou ataque barrado. Responda "
             "apenas com base no ESTADO REAL abaixo — nunca invente.\n\n"
             f"ESTADO ATUAL:\n{json.dumps(ctx, ensure_ascii=False)}")
         messages = [{"role": "system", "content": system}]

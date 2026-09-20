@@ -23,6 +23,8 @@ export interface Metrics {
   inference_calls: number
   calls: InferenceCall[]
   chain: ChainStatus
+  autonomy?: { decisions: number; human_interventions: number }
+  stage_a?: { resolved_free: number; verifications: number }
 }
 
 export const ESCROW_STATES = [
